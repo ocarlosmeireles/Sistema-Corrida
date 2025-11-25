@@ -12,7 +12,7 @@ interface LiveRunProps {
   playSound?: (type: SoundType) => void;
 }
 
-// ... (SpotifyPlayer code remains the same, omitted for brevity but assumed present) ...
+// ... (SpotifyPlayer code remains the same) ...
 const SpotifyPlayer = memo(({ embedId, isExpanded, onToggle }: { embedId: string, isExpanded: boolean, onToggle: () => void }) => {
     return (
         <div 
@@ -126,7 +126,7 @@ const WIND_PATTERNS: Record<WorkoutMode, {
     }
 };
 
-// --- CARIOCA DICTIONARY (NO AI - PURE SOUL) ---
+// --- CARIOCA DICTIONARY ---
 const CARIOCA_DICT = {
     start: [
         "Coé rapaziada! Filhos do Vento na pista. Decola!",
@@ -364,6 +364,9 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   const [motivationalMsg, setMotivationalMsg] = useState<string | null>(null);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   
+  // Share Modal State
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
   const mapRef = useRef<L.Map | null>(null);
   const watchId = useRef<number | null>(null);
   const timerIntervalRef = useRef<number | null>(null);
@@ -373,7 +376,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   // Mock Goal
   useEffect(() => { setDailyGoal("Correr 5km sentindo a brisa."); }, []);
 
-  // Load Voices for more natural sound
+  // Load Voices
   useEffect(() => {
       const loadVoices = () => {
           const voices = window.speechSynthesis.getVoices();
@@ -381,19 +384,11 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
               setAvailableVoices(voices);
           }
       };
-      
-      // Initial load
       loadVoices();
-      
-      // Event listener for when voices are loaded (Chrome needs this)
       window.speechSynthesis.onvoiceschanged = loadVoices;
-      
-      return () => {
-          window.speechSynthesis.onvoiceschanged = null;
-      };
+      return () => { window.speechSynthesis.onvoiceschanged = null; };
   }, []);
 
-  // Helper to toggle full screen
   const requestFullScreen = () => {
       const elem = document.documentElement;
       if (elem.requestFullscreen) {
@@ -401,34 +396,19 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       }
   };
 
-  // Helper for Audio Motivation (Natural Carioca Style)
   const speak = (text: string) => {
       if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel(); // Cancel previous
-          
+          window.speechSynthesis.cancel(); 
           const utterance = new SpeechSynthesisUtterance(text);
-          
-          // 1. Voice Selection Strategy: Prioritize "Google Português do Brasil" or "Luciana" or "Joana"
-          // These sound much better than the default Microsoft voices
           const ptVoices = availableVoices.filter(v => v.lang.includes('pt-BR') || v.lang.includes('pt-PT'));
           const bestVoice = ptVoices.find(v => v.name.includes('Google')) || 
                             ptVoices.find(v => v.name.includes('Luciana')) || 
                             ptVoices.find(v => v.name.includes('Joana')) || 
                             ptVoices[0];
-                            
           if (bestVoice) utterance.voice = bestVoice;
-          
           utterance.lang = 'pt-BR';
-          
-          // 2. Prosody Variation (Humanization)
-          // Vary speed slightly to sound less robotic
-          const randomRate = 1.1 + Math.random() * 0.15; // 1.1 to 1.25 (Faster = more colloquial)
-          utterance.rate = randomRate; 
-          
-          // Vary pitch slightly
-          const randomPitch = 0.95 + Math.random() * 0.1; // 0.95 to 1.05
-          utterance.pitch = randomPitch;
-
+          utterance.rate = 1.1 + Math.random() * 0.15; 
+          utterance.pitch = 0.95 + Math.random() * 0.1; 
           window.speechSynthesis.speak(utterance);
       }
   };
@@ -445,19 +425,14 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       if(playSound) playSound('start'); 
       setIsStarting(true); 
       requestFullScreen(); 
-
-      // Intro Message
       const intro = getCariocaMessage('start');
       speak(intro);
 
-      // Delay actual screen switch
       setTimeout(() => {
           setScreen('active');
           setIsActive(true);
           setIsPaused(false);
           setIsStarting(false);
-          
-          // Start Logic
           startTimeRef.current = Date.now();
           timerIntervalRef.current = window.setInterval(() => {
               const seconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
@@ -468,54 +443,32 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
               watchId.current = navigator.geolocation.watchPosition(
                   (pos) => {
                       setGpsAccuracy(pos.coords.accuracy);
-                      if(pos.coords.accuracy > 35) return; // Filter bad GPS
-                      
+                      if(pos.coords.accuracy > 35) return; 
                       const speedMps = pos.coords.speed || 0; 
                       const instantPaceSec = speedMps > 0.5 ? (1000 / speedMps) : 0;
                       setCurrentPace(instantPaceSec);
-
                       const currentAlt = pos.coords.altitude;
                       if (currentAlt !== null && lastAltitudeRef.current !== null) {
                           const diff = currentAlt - lastAltitudeRef.current;
-                          if (diff > 0.5) { 
-                              setElevationGain(prev => prev + diff);
-                          }
+                          if (diff > 0.5) { setElevationGain(prev => prev + diff); }
                       }
                       if (currentAlt !== null) lastAltitudeRef.current = currentAlt;
-
-                      const pt: RoutePoint = { 
-                          lat: pos.coords.latitude, 
-                          lng: pos.coords.longitude, 
-                          timestamp: pos.timestamp,
-                          speed: speedMps,
-                          altitude: currentAlt 
-                      };
-
+                      const pt: RoutePoint = { lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: pos.timestamp, speed: speedMps, altitude: currentAlt };
                       setRoute(prev => {
                           if (prev.length === 0) return [pt];
-                          
                           const last = prev[prev.length - 1];
                           const R = 6371e3; 
-                          const φ1 = last.lat * Math.PI/180;
-                          const φ2 = pt.lat * Math.PI/180;
-                          const Δφ = (pt.lat-last.lat) * Math.PI/180;
-                          const Δλ = (pt.lng-last.lng) * Math.PI/180;
+                          const φ1 = last.lat * Math.PI/180; const φ2 = pt.lat * Math.PI/180;
+                          const Δφ = (pt.lat-last.lat) * Math.PI/180; const Δλ = (pt.lng-last.lng) * Math.PI/180;
                           const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
-                          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                          const d = R * c; 
-                          
+                          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); const d = R * c; 
                           if (d > 2) { 
                               const newTotalDistKm = (distance * 1000 + d) / 1000;
                               setDistance(newTotalDistKm);
-                              
                               const weight = currentUser?.weight || 70;
                               setCalories(Math.floor(newTotalDistKm * weight * 1.036));
-
                               const totalTimeSec = (Date.now() - startTimeRef.current) / 1000;
-                              if (newTotalDistKm > 0.05) {
-                                  setAvgPace(totalTimeSec / newTotalDistKm);
-                              }
-
+                              if (newTotalDistKm > 0.05) { setAvgPace(totalTimeSec / newTotalDistKm); }
                               return [...prev, pt];
                           }
                           return prev;
@@ -570,7 +523,6 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       return (
           <div className="h-full bg-gray-950 flex flex-col relative overflow-hidden">
               <WindTunnelOverlay active={isStarting} />
-              
               <div className="p-6 z-10">
                   <div className="flex items-center gap-3 mb-2">
                       <div className="p-2 bg-gray-800 rounded-lg border border-gray-700">
@@ -580,7 +532,6 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                   </div>
                   <p className="text-gray-500 text-xs font-bold tracking-widest uppercase pl-1">Configuração de Voo</p>
               </div>
-
               <div className="flex-1 overflow-y-auto px-6 pb-32 custom-scrollbar z-10 space-y-6">
                   <div className="bg-gradient-to-r from-amber-900/40 to-amber-800/40 p-6 rounded-2xl border border-amber-500/30 relative overflow-hidden shadow-lg">
                       <div className="absolute top-0 right-0 p-4 opacity-10"><Target size={80} /></div>
@@ -589,7 +540,6 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                           <p className="text-xl font-bold text-white leading-relaxed italic">"{dailyGoal}"</p>
                       </div>
                   </div>
-
                   <div>
                       <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2"><Wind size={14} /> Estampa de Vento</h3>
                       <div className="space-y-4">
@@ -627,25 +577,18 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   if (screen === 'active') {
       return (
           <div className="fixed inset-0 bg-black z-[100] flex flex-col select-none overflow-hidden">
-              {/* Map Background (Dimmed) */}
               <div className="absolute inset-0 z-0 opacity-40 grayscale-[50%]">
                   <LiveMap route={route} isPaused={isPaused} onRef={(map) => mapRef.current = map} />
                   <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/80 via-transparent to-black/90"></div>
               </div>
-
-              {/* Motivational Pop-up */}
               {motivationalMsg && (
                   <div className="absolute top-20 left-4 right-4 z-50 animate-fade-in">
                       <div className="bg-amber-500 text-black p-4 rounded-2xl shadow-xl border-2 border-white flex items-center gap-3">
-                          <div className="bg-black text-amber-500 p-2 rounded-full">
-                             <Megaphone className="animate-bounce" size={20} />
-                          </div>
+                          <div className="bg-black text-amber-500 p-2 rounded-full"><Megaphone className="animate-bounce" size={20} /></div>
                           <p className="font-black text-sm uppercase italic leading-tight">{motivationalMsg}</p>
                       </div>
                   </div>
               )}
-
-              {/* Top Status Bar */}
               <div className="relative z-10 p-4 flex justify-between items-center">
                   <GpsStatus accuracy={gpsAccuracy} />
                   <div className="flex gap-2">
@@ -655,11 +598,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                       </div>
                   </div>
               </div>
-
-              {/* MAIN METRICS HUD */}
               <div className="relative z-10 flex-1 flex flex-col justify-end pb-8 px-4">
-                  
-                  {/* Primary Big Metrics */}
                   <div className="grid grid-cols-2 gap-4 mb-6">
                       <div className="bg-black/40 backdrop-blur-sm rounded-2xl p-4 border-l-4 border-amber-500">
                           <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest block mb-1">Distância (km)</span>
@@ -670,8 +609,6 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                           <span className="text-5xl font-mono font-bold text-white tracking-tight">{formatTime(elapsedSeconds)}</span>
                       </div>
                   </div>
-
-                  {/* Secondary Grid Metrics */}
                   <div className="grid grid-cols-4 gap-2 mb-6">
                       <div className="bg-gray-900/80 backdrop-blur rounded-xl p-2 text-center border border-white/5">
                           <span className="text-[8px] text-gray-500 uppercase font-bold block">Pace Atual</span>
@@ -690,8 +627,6 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                           <span className="text-lg font-black text-green-400">{elevationGain.toFixed(0)}m</span>
                       </div>
                   </div>
-
-                  {/* Controls */}
                   <div className="flex items-center gap-4">
                       {isPaused ? (
                           <>
@@ -751,6 +686,13 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                       </div>
                   </div>
 
+                  <button 
+                      onClick={() => setIsShareModalOpen(true)}
+                      className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl uppercase tracking-widest mb-3 hover:scale-105 transition-transform shadow-lg flex items-center justify-center gap-2"
+                  >
+                      <Share2 size={18} /> Compartilhar Conquista
+                  </button>
+
                   <button onClick={() => onSaveActivity({
                       distanceKm: distance,
                       durationMin: Math.ceil(elapsedSeconds / 60),
@@ -762,14 +704,26 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                       calories: calories,
                       route: route,
                       mode: selectedMode
-                  })} className="w-full bg-white text-black font-black py-4 rounded-xl uppercase tracking-widest mb-4 hover:scale-105 transition-transform shadow-xl">
-                      Salvar Atividade
+                  })} className="w-full bg-white text-black font-black py-3 rounded-xl uppercase tracking-widest mb-4 hover:scale-105 transition-transform shadow-xl">
+                      Salvar e Sair
                   </button>
                   
                   <button onClick={() => setScreen('select')} className="text-gray-500 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors">
                       Descartar sem salvar
                   </button>
               </div>
+
+              {/* INTEGRATED SHARE MODAL */}
+              <SocialShareModal 
+                  isOpen={isShareModalOpen} 
+                  onClose={() => setIsShareModalOpen(false)}
+                  data={{
+                      distance: `${distance.toFixed(2)} KM`,
+                      time: formatTime(elapsedSeconds),
+                      pace: formatPace(avgPace)
+                  }}
+                  route={route}
+              />
           </div>
       );
   }

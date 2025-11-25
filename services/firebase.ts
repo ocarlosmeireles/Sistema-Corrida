@@ -6,10 +6,8 @@ import {
   doc, 
   setDoc, 
   getDocs, 
-  writeBatch, 
-  initializeFirestore, 
-  persistentLocalCache, 
-  persistentMultipleTabManager 
+  writeBatch,
+  enableIndexedDbPersistence
 } from "firebase/firestore";
 import { Member, WindRank, RaceEvent, Story, Sponsor, Season } from "../types";
 
@@ -24,13 +22,33 @@ const firebaseConfig = {
   appId: "1:379094525129:web:fb06b2c937618f8c921918"
 };
 
-// Initialize Firebase with Persistence
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase
+let app;
+let dbInstance;
 
-// Initialize Cloud Firestore with persistent cache
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-});
+try {
+    app = initializeApp(firebaseConfig);
+    // Initialize Cloud Firestore with default settings
+    // Avoid persistentLocalCache for now as it can cause issues in some sandbox environments
+    dbInstance = getFirestore(app);
+    
+    // Optional: Attempt persistence, but catch error if it fails (e.g. multiple tabs)
+    enableIndexedDbPersistence(dbInstance).catch((err) => {
+        if (err.code == 'failed-precondition') {
+            console.warn('Persistence failed: Multiple tabs open');
+        } else if (err.code == 'unimplemented') {
+            console.warn('Persistence not supported');
+        }
+    });
+
+} catch (e) {
+    console.error("Firebase Initialization Error:", e);
+    // Create a dummy DB object if initialization completely fails to prevent app crash on import
+    // This allows the app to load in "Offline Mock Mode" purely
+    dbInstance = {} as any; 
+}
+
+export const db = dbInstance;
 
 // --- MOCK DATA (Exported for fallback) ---
 export const INITIAL_SPONSORS: Sponsor[] = [
@@ -244,6 +262,12 @@ export const MOCK_SEASON: Season = {
 
 // --- SEED FUNCTION ---
 export const seedDatabase = async () => {
+    // Defensive check: If db is not a valid Firestore instance (e.g. initialization failed), skip seeding
+    if (!db || !db.type) {
+        console.warn("Skipping Firebase Seeding: Database not initialized correctly.");
+        return;
+    }
+
     console.log("Attempting to seed database...");
     try {
         const batch = writeBatch(db);
@@ -316,11 +340,7 @@ export const seedDatabase = async () => {
         }
     } catch (error: any) {
         // Graceful degradation for offline or permission denied
-        if (error.code === 'permission-denied' || error.code === 'unavailable' || error.code === 'failed-precondition') {
-             console.warn("⚠️ Firebase Disconnected: Running in Offline/Demo Mode.");
-             return; // Do not throw, allowing app to proceed with mock data
-        }
-        console.error("Seeding failed:", error);
-        // Still allow app to continue even on other errors
+        console.warn("⚠️ Firebase Seeding Issue: " + error.message);
+        // Do not throw, allowing app to proceed with mock data in memory
     }
 };

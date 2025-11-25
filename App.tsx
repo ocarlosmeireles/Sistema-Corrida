@@ -16,7 +16,8 @@ import { Seasons } from './components/Seasons';
 import { UserProfile } from './components/UserProfile';
 import { AdminPanel } from './components/AdminPanel';
 import { Login } from './components/Login';
-import { ProLounge } from './components/ProLounge'; // Import new component
+import { ProLounge } from './components/ProLounge';
+import { ActivityHistory } from './components/ActivityHistory'; // Import new component
 import { Member, WindRank, RaceEvent, Activity, Season, Sponsor, Story, PlanType, Notification, TrainingPlan, PrivateMessage, SoundType } from './types';
 
 // Firebase Imports
@@ -62,7 +63,6 @@ const App: React.FC = () => {
               // Subscribe to Members
               unsubscribeMembers = onSnapshot(collection(db, 'members'), (snapshot) => {
                   const loadedMembers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Member));
-                  // Only update if we actually got data, otherwise keep mock
                   if (loadedMembers.length > 0) setMembers(loadedMembers);
               }, (error) => {
                   console.warn("Members Sync failed (Offline Mode active).");
@@ -111,7 +111,6 @@ const App: React.FC = () => {
 
           } catch (e) {
               console.error("Firebase connection error - using local data.", e);
-              // No action needed as state is already initialized with Mock Data
           }
       };
       
@@ -169,13 +168,7 @@ const App: React.FC = () => {
 
         switch (type) {
             case 'click':
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(800, now);
-                osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
-                gainNode.gain.setValueAtTime(0.05, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-                osc.start(now);
-                osc.stop(now + 0.06);
+                // Silent for clicks as requested
                 break;
             case 'toggle':
                 osc.type = 'triangle';
@@ -206,17 +199,39 @@ const App: React.FC = () => {
                 osc.start(now);
                 osc.stop(now + 0.2);
                 break;
-            case 'start': // Futuristic Power Up
+            case 'start': // Enhanced Wind/Scifi Start
+                // Noise Buffer for "Wind"
+                const bufferSize = ctx.sampleRate * 2; // 2 seconds
+                const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = ctx.createBufferSource();
+                noise.buffer = buffer;
+                const noiseFilter = ctx.createBiquadFilter();
+                noiseFilter.type = 'lowpass';
+                noiseFilter.frequency.setValueAtTime(200, now);
+                noiseFilter.frequency.linearRampToValueAtTime(2000, now + 1.5);
+                const noiseGain = ctx.createGain();
+                noiseGain.gain.setValueAtTime(0.2, now);
+                noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+                noise.connect(noiseFilter);
+                noiseFilter.connect(noiseGain);
+                noiseGain.connect(ctx.destination);
+                noise.start(now);
+
+                // Tone
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(200, now);
                 osc.frequency.exponentialRampToValueAtTime(800, now + 0.4);
-                gainNode.gain.setValueAtTime(0.05, now);
-                gainNode.gain.linearRampToValueAtTime(0.1, now + 0.4);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.linearRampToValueAtTime(0.2, now + 0.4);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
                 osc.start(now);
-                osc.stop(now + 0.8);
+                osc.stop(now + 1.5);
                 break;
-            case 'hero': // Login/Welcome sound
+            case 'hero': 
                 // Chord
                 const osc2 = ctx.createOscillator();
                 const gain2 = ctx.createGain();
@@ -261,7 +276,6 @@ const App: React.FC = () => {
              if (m.plan === 'pro' && m.proExpiresAt) {
                  const expireDate = new Date(m.proExpiresAt);
                  if (now > expireDate) {
-                     // Update Firestore
                      try {
                         const updatedMember = { ...m, plan: 'basic' as PlanType, proExpiresAt: undefined };
                         // @ts-ignore
@@ -277,7 +291,6 @@ const App: React.FC = () => {
          });
      };
 
-     // Check every minute
      const interval = setInterval(checkProExpiration, 60000);
      return () => clearInterval(interval);
   }, [members]); 
@@ -287,18 +300,15 @@ const App: React.FC = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
-  // Auth Handler
   const handleLogin = (userId: string) => {
       playUISound('hero');
       setCurrentUserId(userId);
       setIsAuthenticated(true);
       
-      // Request notification permission on login
       if ("Notification" in window && Notification.permission !== "granted") {
           Notification.requestPermission();
       }
       
-      // Redirect admins to admin tab, others to dashboard
       const user = members.find(m => m.id === userId);
       if (user && (user.role === 'admin' || user.role === 'super_admin')) {
           setActiveTab('admin');
@@ -318,7 +328,7 @@ const App: React.FC = () => {
           weight: data.weight,
           height: data.height,
           role: 'member',
-          plan: 'basic', // Default plan is BASIC, requires Admin to upgrade
+          plan: 'basic',
           rank: WindRank.BREEZE,
           totalDistance: 0,
           seasonScore: 0,
@@ -340,13 +350,11 @@ const App: React.FC = () => {
 
       try {
           await setDoc(doc(db, 'members', newMember.id), newMember);
-          // Also update local state immediately for smoother UX if offline
           setMembers(prev => [...prev, newMember]);
           handleLogin(newMember.id);
       } catch(e) {
           console.error("Registration failed", e);
-          alert("Erro ao cadastrar. Tente novamente (offline mode pode estar ativo).");
-          // Fallback registration
+          alert("Erro ao cadastrar.");
           setMembers(prev => [...prev, newMember]);
           handleLogin(newMember.id);
       }
@@ -380,13 +388,11 @@ const App: React.FC = () => {
         try {
             await updateDoc(doc(db, 'members', memberId), { notifications: updatedNotifications });
         } catch (e) {
-            // Fallback for local state if firebase fails
             setMembers(prev => prev.map(m => m.id === memberId ? { ...m, notifications: updatedNotifications } : m));
         }
     }
   };
 
-  // Function to notify other members (passed to children)
   const handleNotifyMember = (targetId: string, title: string, message: string) => {
       addNotification(targetId, { title, message, type: 'info' });
   };
@@ -427,7 +433,6 @@ const App: React.FC = () => {
       }
   };
 
-  // --- MESSAGING LOGIC ---
   const handleSendMessage = async (receiverId: string, content: string) => {
       playUISound('click');
       const newMessage: PrivateMessage = {
@@ -445,7 +450,6 @@ const App: React.FC = () => {
         setDirectMessages(prev => [...prev, newMessage]);
       }
       
-      // Notify Receiver
       const sender = members.find(m => m.id === currentUserId);
       addNotification(receiverId, {
           title: "Nova Mensagem Privada",
@@ -461,7 +465,6 @@ const App: React.FC = () => {
       setActiveTab('community');
   };
 
-  // Navigation Logic
   const handleViewProfile = (memberId: string) => {
     playUISound('click');
     setViewingMemberId(memberId);
@@ -474,12 +477,10 @@ const App: React.FC = () => {
     setTargetChatUserId(null); 
   };
 
-  // Logic to Follow/Unfollow
   const handleToggleFollow = async (targetId: string) => {
     playUISound('click');
     const isFollowing = currentUser.following.includes(targetId);
     
-    // Update Current User
     const newFollowing = isFollowing 
         ? currentUser.following.filter(id => id !== targetId) 
         : [...currentUser.following, targetId];
@@ -491,7 +492,6 @@ const App: React.FC = () => {
             seasonScore: newScore 
         });
 
-        // Update Target User
         const targetMember = members.find(m => m.id === targetId);
         if (targetMember) {
             const newFollowers = isFollowing
@@ -508,7 +508,6 @@ const App: React.FC = () => {
             }
         }
     } catch (e) {
-        // Fallback
         setMembers(prev => prev.map(m => {
             if(m.id === currentUserId) return { ...m, following: newFollowing, seasonScore: newScore };
             if(m.id === targetId) {
@@ -520,7 +519,6 @@ const App: React.FC = () => {
     }
   };
 
-  // ... (Helper calculations remain the same) ...
   const calculateStreak = (activities: Activity[]) => {
       if (!activities || activities.length === 0) return 0;
       const dates = Array.from(new Set(activities.map(a => a.date.split('T')[0])))
@@ -531,7 +529,6 @@ const App: React.FC = () => {
 
       const today = new Date();
       today.setHours(0,0,0,0);
-      
       const lastRun = new Date(dates[0]);
       lastRun.setHours(0,0,0,0);
       
@@ -544,13 +541,8 @@ const App: React.FC = () => {
         const prev = new Date(dates[i+1]);
         curr.setHours(0,0,0,0);
         prev.setHours(0,0,0,0);
-        
-        const diff = (curr.getTime() - prev.getTime()) / (1000 * 3600 * 24);
-        if (diff === 1) {
-            streak++;
-        } else {
-            break;
-        }
+        if ((curr.getTime() - prev.getTime()) / (1000 * 3600 * 24) === 1) streak++;
+        else break;
       }
       return streak;
   };
@@ -572,7 +564,6 @@ const App: React.FC = () => {
   };
 
   const handleUpdateUser = async (updatedMember: Member) => {
-    // ... (Achievement Logic remains the same) ...
     const newAchievements = [...(updatedMember.achievements || [])];
     const currentStreak = calculateStreak(updatedMember.activities);
     const activities = updatedMember.activities || [];
@@ -608,7 +599,6 @@ const App: React.FC = () => {
     }
   };
 
-  // ... (Other handlers remain almost the same, passed down correctly) ...
   const handleUpdateActivePlan = async (plan: TrainingPlan) => {
       const updatedUser = { ...currentUser, activePlan: plan };
       await handleUpdateUser(updatedUser);
@@ -908,7 +898,7 @@ const App: React.FC = () => {
                 onUpgradeRequest={handleRequestUpgrade} 
             />
         );
-      case 'vip': // New VIP Case
+      case 'vip':
         if (currentUser.plan !== 'pro' && currentUser.role !== 'admin' && currentUser.role !== 'super_admin') {
             return <div className="text-center p-10">Acesso Restrito</div>;
         }
@@ -916,7 +906,6 @@ const App: React.FC = () => {
             <ProLounge 
                 currentUser={currentUser} 
                 onContactSupport={() => {
-                    // Find an admin to chat with
                     const admin = members.find(m => m.role === 'admin' || m.role === 'super_admin');
                     if (admin) handleOpenChat(admin.id);
                     else alert("Nenhum suporte disponível no momento.");
@@ -932,6 +921,8 @@ const App: React.FC = () => {
                 playSound={playUISound}
             />
         );
+      case 'history':
+        return <ActivityHistory currentUser={currentUser} isDark={theme === 'dark'} />;
       case 'season':
         return <Seasons season={currentSeason} members={members} onViewLeaderboard={() => setActiveTab('leaderboard')} />;
       case 'plans':
