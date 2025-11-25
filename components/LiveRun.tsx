@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { Activity, RoutePoint, Notification, Member, WorkoutMode, SoundType } from '../types';
-import { Play, Pause, Square, Flag, CheckCircle, Zap, Wind, Mountain, Footprints, Cloud, Tornado, Lock, Unlock, Crosshair, Mic, Target, Award, Share2, Volume2, VolumeX, X, Image as ImageIcon, Download, Loader2, Music, ChevronUp, ChevronDown, Flame, Activity as ActivityIcon, Gauge, Feather, Signal } from 'lucide-react';
+import { Play, Pause, Square, Flag, CheckCircle, Zap, Wind, Mountain, Footprints, Cloud, Tornado, Lock, Unlock, Crosshair, Mic, Target, Award, Share2, Volume2, VolumeX, X, Image as ImageIcon, Download, Loader2, Music, ChevronUp, ChevronDown, Flame, Activity as ActivityIcon, Gauge, Feather, Signal, Maximize, Minimize, Megaphone } from 'lucide-react';
 import * as L from 'leaflet';
 import { SocialShareModal } from './SocialShareModal';
 
@@ -126,8 +126,45 @@ const WIND_PATTERNS: Record<WorkoutMode, {
     }
 };
 
-// ... (generateSmartGoal, getVoiceScript, VoiceVisualizer, GpsStatus, LongPressButton, PaceGraph remain same) ...
-// For brevity, assume helper components are here. Re-include strict necessary ones.
+// --- CARIOCA COACH PHRASES ---
+const CARIOCA_COACH = {
+    intro: [
+        "Fala tu! Filhos do Vento na área. Prepara pra decolar!",
+        "Aquece os motores que hoje o céu tá limpo pra voar baixo.",
+        "Bora acionar o modo turbo? Filhos do Vento no comando."
+    ],
+    male: [
+        "Bora, meu parceiro! Mostra que tu é raiz!",
+        "Acelera, irmão! Tá correndo ou passeando no shopping?",
+        "Isso aí, guerreiro! Ritmo de cria!",
+        "Fala, malandro! Transforma essa brisa em furacão!",
+        "Tu é máquina ou não é? Arrebenta!",
+        "Mantém a postura, moleque! Elegância na passada."
+    ],
+    female: [
+        "Bora, minha parceira! Mostra a força da natureza!",
+        "Acelera, irmã! Deixa as inimigas na poeira!",
+        "Isso aí, guerreira! Ritmo de rainha!",
+        "Fala, musa! Transforma essa brisa em tempestade!",
+        "Tu é poderosa ou não é? Arrebenta!",
+        "Mantém a postura, garota! Elegância na passada."
+    ],
+    neutral: [
+        "Esquece! O ritmo tá insano!",
+        "Sente o vento na cara, essa é a tua energia.",
+        "Não para não, o asfalto é todo nosso!",
+        "Se o vento tá contra, a gente fura ele na marra!",
+        "Respira fundo, sente a maresia e vai!",
+        "Tá fluindo igual água, continua!",
+        "Deixa de ser brisa e vira logo um Tufão!"
+    ]
+};
+
+const getCariocaMessage = (gender: 'male' | 'female' = 'male') => {
+    const genderPhrases = gender === 'female' ? CARIOCA_COACH.female : CARIOCA_COACH.male;
+    const pool = [...CARIOCA_COACH.neutral, ...genderPhrases];
+    return pool[Math.floor(Math.random() * pool.length)];
+};
 
 const GpsStatus = ({ accuracy }: { accuracy: number | null }) => {
     let color = "text-gray-500";
@@ -287,22 +324,63 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   // Telemetry & Other States...
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [distance, setDistance] = useState(0);
+  const [calories, setCalories] = useState(0);
+  const [elevationGain, setElevationGain] = useState(0);
+  const [currentPace, setCurrentPace] = useState(0); // Seconds per km
+  const [avgPace, setAvgPace] = useState(0); // Seconds per km
   const [route, setRoute] = useState<RoutePoint[]>([]);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [motivationalMsg, setMotivationalMsg] = useState<string | null>(null);
   
   const mapRef = useRef<L.Map | null>(null);
   const watchId = useRef<number | null>(null);
   const timerIntervalRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
+  const lastAltitudeRef = useRef<number | null>(null);
 
   // Mock Goal
   useEffect(() => { setDailyGoal("Correr 5km sentindo a brisa."); }, []);
 
-  const startRun = async () => {
-      if(playSound) playSound('start'); // This now plays the wind/scifi sound
-      setIsStarting(true); // Trigger Wind Animation
+  // Helper to toggle full screen
+  const requestFullScreen = () => {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) {
+          elem.requestFullscreen().catch(err => console.warn("Fullscreen denied:", err));
+      }
+  };
 
-      // Delay actual screen switch to allow animation to play
+  // Helper for Audio Motivation (Carioca Style)
+  const speak = (text: string) => {
+      if ('speechSynthesis' in window) {
+          // Cancel previous speech
+          window.speechSynthesis.cancel();
+          
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'pt-BR'; // Force Brazilian Portuguese
+          utterance.rate = 1.2; // Cariocas speak slightly faster
+          utterance.pitch = 1.05; // Slight pitch up for energy
+          window.speechSynthesis.speak(utterance);
+      }
+  };
+
+  const triggerMotivation = () => {
+      const gender = currentUser?.gender || 'male';
+      const phrase = getCariocaMessage(gender);
+      setMotivationalMsg(phrase);
+      speak(phrase);
+      setTimeout(() => setMotivationalMsg(null), 6000);
+  };
+
+  const startRun = async () => {
+      if(playSound) playSound('start'); 
+      setIsStarting(true); 
+      requestFullScreen(); 
+
+      // Intro Message
+      const intro = CARIOCA_COACH.intro[Math.floor(Math.random() * CARIOCA_COACH.intro.length)];
+      speak(intro);
+
+      // Delay actual screen switch
       setTimeout(() => {
           setScreen('active');
           setIsActive(true);
@@ -312,40 +390,85 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
           // Start Logic
           startTimeRef.current = Date.now();
           timerIntervalRef.current = window.setInterval(() => {
-              setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+              const seconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+              setElapsedSeconds(seconds);
           }, 1000);
 
           if (navigator.geolocation) {
               watchId.current = navigator.geolocation.watchPosition(
                   (pos) => {
                       setGpsAccuracy(pos.coords.accuracy);
-                      if(pos.coords.accuracy > 30) return;
+                      if(pos.coords.accuracy > 35) return; // Filter bad GPS
                       
-                      const pt: RoutePoint = { lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: pos.timestamp };
+                      const speedMps = pos.coords.speed || 0; 
+                      const instantPaceSec = speedMps > 0.5 ? (1000 / speedMps) : 0;
+                      setCurrentPace(instantPaceSec);
+
+                      const currentAlt = pos.coords.altitude;
+                      if (currentAlt !== null && lastAltitudeRef.current !== null) {
+                          const diff = currentAlt - lastAltitudeRef.current;
+                          if (diff > 0.5) { 
+                              setElevationGain(prev => prev + diff);
+                          }
+                      }
+                      if (currentAlt !== null) lastAltitudeRef.current = currentAlt;
+
+                      const pt: RoutePoint = { 
+                          lat: pos.coords.latitude, 
+                          lng: pos.coords.longitude, 
+                          timestamp: pos.timestamp,
+                          speed: speedMps,
+                          altitude: currentAlt 
+                      };
+
                       setRoute(prev => {
                           if (prev.length === 0) return [pt];
+                          
                           const last = prev[prev.length - 1];
-                          const d = 0.01; // Mock logic replaced by real distance calc usually
-                          setDistance(curr => curr + d); 
-                          return [...prev, pt];
+                          const R = 6371e3; 
+                          const φ1 = last.lat * Math.PI/180;
+                          const φ2 = pt.lat * Math.PI/180;
+                          const Δφ = (pt.lat-last.lat) * Math.PI/180;
+                          const Δλ = (pt.lng-last.lng) * Math.PI/180;
+                          const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                          const d = R * c; 
+                          
+                          if (d > 2) { 
+                              const newTotalDistKm = (distance * 1000 + d) / 1000;
+                              setDistance(newTotalDistKm);
+                              
+                              const weight = currentUser?.weight || 70;
+                              setCalories(Math.floor(newTotalDistKm * weight * 1.036));
+
+                              const totalTimeSec = (Date.now() - startTimeRef.current) / 1000;
+                              if (newTotalDistKm > 0.05) {
+                                  setAvgPace(totalTimeSec / newTotalDistKm);
+                              }
+
+                              return [...prev, pt];
+                          }
+                          return prev;
                       });
                   },
                   err => console.warn(err),
-                  { enableHighAccuracy: true }
+                  { enableHighAccuracy: true, maximumAge: 1000 }
               );
           }
-      }, 2000); // 2 seconds wind tunnel
+      }, 2000); 
   };
 
   const pauseRun = () => {
       setIsPaused(true);
+      speak("Pausa pra respirar.");
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
   };
 
   const resumeRun = () => {
       setIsPaused(false);
+      speak("Bora voltar! Foco!");
       timerIntervalRef.current = window.setInterval(() => {
-          setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000)); // Simplification
+          setElapsedSeconds(prev => prev + 1); 
       }, 1000);
   };
 
@@ -353,6 +476,23 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       pauseRun();
       setScreen('finish');
       if(playSound) playSound('success');
+      speak("Boa! Treino finalizado. Tu mandou muito bem.");
+      if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  };
+
+  const formatTime = (totalSeconds: number) => {
+      const h = Math.floor(totalSeconds / 3600);
+      const m = Math.floor((totalSeconds % 3600) / 60);
+      const s = totalSeconds % 60;
+      if (h > 0) return `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+      return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+  };
+
+  const formatPace = (secPerKm: number) => {
+      if (!secPerKm || secPerKm === Infinity || secPerKm > 3600) return "--'--\"";
+      const m = Math.floor(secPerKm / 60);
+      const s = Math.floor(secPerKm % 60);
+      return `${m}'${s.toString().padStart(2,'0')}"`;
   };
 
   // --- SELECT SCREEN ---
@@ -413,53 +553,95 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       );
   }
 
-  // --- ACTIVE HUD ---
+  // --- ACTIVE HUD (PROFESSIONAL MODE) ---
   if (screen === 'active') {
       return (
-          <div className="fixed inset-0 bg-black z-[100] flex flex-col select-none">
-              <div className="absolute inset-0 z-0">
+          <div className="fixed inset-0 bg-black z-[100] flex flex-col select-none overflow-hidden">
+              {/* Map Background (Dimmed) */}
+              <div className="absolute inset-0 z-0 opacity-40 grayscale-[50%]">
                   <LiveMap route={route} isPaused={isPaused} onRef={(map) => mapRef.current = map} />
-                  <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.8)_100%)]"></div>
+                  <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/80 via-transparent to-black/90"></div>
               </div>
 
-              {/* Clean Minimal HUD */}
-              <div className="relative z-10 p-4 flex justify-between items-center bg-gradient-to-b from-black/90 to-transparent">
+              {/* Motivational Pop-up */}
+              {motivationalMsg && (
+                  <div className="absolute top-20 left-4 right-4 z-50 animate-fade-in">
+                      <div className="bg-amber-500 text-black p-4 rounded-2xl shadow-xl border-2 border-white flex items-center gap-3">
+                          <div className="bg-black text-amber-500 p-2 rounded-full">
+                             <Megaphone className="animate-bounce" size={20} />
+                          </div>
+                          <p className="font-black text-sm uppercase italic leading-tight">{motivationalMsg}</p>
+                      </div>
+                  </div>
+              )}
+
+              {/* Top Status Bar */}
+              <div className="relative z-10 p-4 flex justify-between items-center">
                   <GpsStatus accuracy={gpsAccuracy} />
-                  <div className="text-white font-mono font-bold text-xl drop-shadow-md">
-                      {Math.floor(elapsedSeconds / 60).toString().padStart(2,'0')}:{(elapsedSeconds % 60).toString().padStart(2,'0')}
+                  <div className="flex gap-2">
+                      <div className="bg-red-600/20 border border-red-500/50 text-red-500 px-2 py-1 rounded-md flex items-center gap-1 animate-pulse">
+                          <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                          <span className="text-[10px] font-bold uppercase">REC</span>
+                      </div>
                   </div>
               </div>
 
-              <div className="flex-1 relative">
-                  {/* Main Metrics */}
-                  <div className="absolute bottom-0 left-0 right-0 z-40 bg-gray-950/80 backdrop-blur-xl rounded-t-[3rem] p-8 border-t border-gray-800/50">
-                      <div className="grid grid-cols-2 gap-8 mb-8">
-                          <div className="text-center">
-                              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">Distância</p>
-                              <div className="text-6xl font-black text-white italic tracking-tighter">{distance.toFixed(2)}<span className="text-lg text-amber-500 not-italic ml-1">km</span></div>
-                          </div>
-                          <div className="text-center">
-                              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">Pace</p>
-                              <div className="text-6xl font-black text-white italic tracking-tighter">5'30"</div>
-                          </div>
+              {/* MAIN METRICS HUD */}
+              <div className="relative z-10 flex-1 flex flex-col justify-end pb-8 px-4">
+                  
+                  {/* Primary Big Metrics */}
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div className="bg-black/40 backdrop-blur-sm rounded-2xl p-4 border-l-4 border-amber-500">
+                          <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest block mb-1">Distância (km)</span>
+                          <span className="text-6xl font-black text-white italic tracking-tighter">{distance.toFixed(2)}</span>
                       </div>
+                      <div className="bg-black/40 backdrop-blur-sm rounded-2xl p-4 border-l-4 border-blue-500 text-right">
+                          <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest block mb-1">Tempo</span>
+                          <span className="text-5xl font-mono font-bold text-white tracking-tight">{formatTime(elapsedSeconds)}</span>
+                      </div>
+                  </div>
 
-                      <div className="flex gap-4">
-                          {isPaused ? (
-                              <>
-                                <LongPressButton onComplete={endRun} className="flex-1 bg-red-900/50 text-red-200 border border-red-500/30 h-16 rounded-2xl font-bold uppercase tracking-wide flex items-center justify-center gap-2">
-                                    <Square size={20} fill="currentColor" /> Parar
-                                </LongPressButton>
-                                <button onClick={resumeRun} className="flex-[2] bg-white text-black h-16 rounded-2xl font-black uppercase tracking-wide flex items-center justify-center gap-2">
-                                    <Play size={20} fill="currentColor" /> Retomar
-                                </button>
-                              </>
-                          ) : (
-                              <button onClick={pauseRun} className="w-full bg-gray-800 text-white h-16 rounded-2xl font-bold uppercase tracking-wide border border-gray-700 flex items-center justify-center gap-2">
-                                  <Pause size={20} fill="currentColor" /> Pausar
-                              </button>
-                          )}
+                  {/* Secondary Grid Metrics */}
+                  <div className="grid grid-cols-4 gap-2 mb-6">
+                      <div className="bg-gray-900/80 backdrop-blur rounded-xl p-2 text-center border border-white/5">
+                          <span className="text-[8px] text-gray-500 uppercase font-bold block">Pace Atual</span>
+                          <span className="text-lg font-black text-white">{formatPace(currentPace)}</span>
                       </div>
+                      <div className="bg-gray-900/80 backdrop-blur rounded-xl p-2 text-center border border-white/5">
+                          <span className="text-[8px] text-gray-500 uppercase font-bold block">Pace Médio</span>
+                          <span className="text-lg font-black text-gray-300">{formatPace(avgPace)}</span>
+                      </div>
+                      <div className="bg-gray-900/80 backdrop-blur rounded-xl p-2 text-center border border-white/5">
+                          <span className="text-[8px] text-gray-500 uppercase font-bold block">Calorias</span>
+                          <span className="text-lg font-black text-orange-400">{calories}</span>
+                      </div>
+                      <div className="bg-gray-900/80 backdrop-blur rounded-xl p-2 text-center border border-white/5">
+                          <span className="text-[8px] text-gray-500 uppercase font-bold block">Elevação</span>
+                          <span className="text-lg font-black text-green-400">{elevationGain.toFixed(0)}m</span>
+                      </div>
+                  </div>
+
+                  {/* Controls */}
+                  <div className="flex items-center gap-4">
+                      {isPaused ? (
+                          <>
+                            <LongPressButton onComplete={endRun} className="flex-1 bg-red-600 text-white h-16 rounded-2xl font-bold uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-red-900/50">
+                                <Square size={24} fill="currentColor" /> Parar
+                            </LongPressButton>
+                            <button onClick={resumeRun} className="flex-[2] bg-green-500 text-black h-16 rounded-2xl font-black uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-green-500/20 hover:scale-105 transition-transform">
+                                <Play size={28} fill="currentColor" /> Retomar
+                            </button>
+                          </>
+                      ) : (
+                          <>
+                            <button onClick={triggerMotivation} className="w-16 h-16 bg-amber-500/20 border border-amber-500 text-amber-500 rounded-2xl flex items-center justify-center active:scale-95 transition-transform">
+                                <Zap size={28} fill="currentColor" />
+                            </button>
+                            <button onClick={pauseRun} className="flex-1 bg-white text-black h-16 rounded-2xl font-black uppercase tracking-wide flex items-center justify-center gap-2 shadow-xl">
+                                <Pause size={28} fill="currentColor" /> Pausar
+                            </button>
+                          </>
+                      )}
                   </div>
               </div>
           </div>
@@ -469,22 +651,55 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   // --- FINISH SCREEN ---
   if (screen === 'finish') {
       return (
-          <div className="h-full bg-black p-8 flex flex-col items-center justify-center">
-              <Flag size={60} className="text-amber-500 mb-4" />
-              <h2 className="text-4xl font-black text-white uppercase italic mb-2">Treino Finalizado</h2>
-              <p className="text-gray-400 mb-8">{distance.toFixed(2)}km Percorridos</p>
-              <button onClick={() => onSaveActivity({
-                  distanceKm: distance,
-                  durationMin: Math.ceil(elapsedSeconds / 60),
-                  pace: "5'00\"",
-                  date: new Date().toISOString().split('T')[0],
-                  feeling: 'good',
-                  notes: '',
-                  route: route
-              })} className="w-full bg-white text-black font-black py-4 rounded-2xl uppercase tracking-widest mb-4">
-                  Salvar
-              </button>
-              <button onClick={() => setScreen('select')} className="text-gray-500 text-sm font-bold uppercase tracking-widest">Descartar</button>
+          <div className="h-full bg-black p-8 flex flex-col items-center justify-center text-center relative overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.15)_0%,rgba(0,0,0,0)_70%)] pointer-events-none"></div>
+              
+              <div className="relative z-10 bg-gray-900/50 p-8 rounded-3xl border border-white/10 backdrop-blur-md w-full max-w-sm">
+                  <div className="inline-block p-4 rounded-full bg-amber-500 text-black mb-6 shadow-lg shadow-amber-500/30">
+                      <Flag size={40} fill="currentColor" />
+                  </div>
+                  
+                  <h2 className="text-3xl font-black text-white uppercase italic mb-2">Treino Finalizado</h2>
+                  <p className="text-gray-400 text-sm mb-8 uppercase tracking-widest font-bold">{selectedMode.replace('_', ' ')}</p>
+                  
+                  <div className="grid grid-cols-2 gap-6 mb-8 text-left">
+                      <div>
+                          <span className="text-[10px] text-gray-500 uppercase font-bold">Distância</span>
+                          <div className="text-3xl font-black text-white">{distance.toFixed(2)}<span className="text-sm text-amber-500">km</span></div>
+                      </div>
+                      <div>
+                          <span className="text-[10px] text-gray-500 uppercase font-bold">Tempo</span>
+                          <div className="text-3xl font-black text-white">{formatTime(elapsedSeconds)}</div>
+                      </div>
+                      <div>
+                          <span className="text-[10px] text-gray-500 uppercase font-bold">Pace Médio</span>
+                          <div className="text-3xl font-black text-white">{formatPace(avgPace)}</div>
+                      </div>
+                      <div>
+                          <span className="text-[10px] text-gray-500 uppercase font-bold">Calorias</span>
+                          <div className="text-3xl font-black text-white">{calories}</div>
+                      </div>
+                  </div>
+
+                  <button onClick={() => onSaveActivity({
+                      distanceKm: distance,
+                      durationMin: Math.ceil(elapsedSeconds / 60),
+                      pace: formatPace(avgPace),
+                      date: new Date().toISOString().split('T')[0],
+                      feeling: 'good',
+                      notes: '',
+                      elevationGain: elevationGain,
+                      calories: calories,
+                      route: route,
+                      mode: selectedMode
+                  })} className="w-full bg-white text-black font-black py-4 rounded-xl uppercase tracking-widest mb-4 hover:scale-105 transition-transform shadow-xl">
+                      Salvar Atividade
+                  </button>
+                  
+                  <button onClick={() => setScreen('select')} className="text-gray-500 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors">
+                      Descartar sem salvar
+                  </button>
+              </div>
           </div>
       );
   }
