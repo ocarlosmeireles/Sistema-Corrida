@@ -126,43 +126,74 @@ const WIND_PATTERNS: Record<WorkoutMode, {
     }
 };
 
-// --- CARIOCA COACH PHRASES ---
-const CARIOCA_COACH = {
-    intro: [
-        "Fala tu! Filhos do Vento na área. Prepara pra decolar!",
-        "Aquece os motores que hoje o céu tá limpo pra voar baixo.",
-        "Bora acionar o modo turbo? Filhos do Vento no comando."
+// --- CARIOCA DICTIONARY (NO AI - PURE SOUL) ---
+const CARIOCA_DICT = {
+    start: [
+        "Coé rapaziada! Filhos do Vento na pista. Decola!",
+        "Fala tu! Hora de separar os crianças dos adultos. Arrebenta!",
+        "Já é! Aquece os motores que o asfalto tá chamando.",
+        "Atenção tripulação, tempo bom no Aterro. Vamo voar baixo!",
+        "Bora, sangue bom! Hoje é dia de bater recorde."
     ],
-    male: [
-        "Bora, meu parceiro! Mostra que tu é raiz!",
-        "Acelera, irmão! Tá correndo ou passeando no shopping?",
-        "Isso aí, guerreiro! Ritmo de cria!",
-        "Fala, malandro! Transforma essa brisa em furacão!",
-        "Tu é máquina ou não é? Arrebenta!",
-        "Mantém a postura, moleque! Elegância na passada."
+    pause: [
+        "Ué, parou por quê? Tá pegando fôlego ou admirando a paisagem?",
+        "Pausa pro mate? Beleza, mas não esfria o motor não!",
+        "Segurou o ritmo? Tranquilo, respira fundo que a gente volta já.",
+        "O vento parou? Que nada, recupera aí guerreiro."
     ],
-    female: [
-        "Bora, minha parceira! Mostra a força da natureza!",
-        "Acelera, irmã! Deixa as inimigas na poeira!",
-        "Isso aí, guerreira! Ritmo de rainha!",
-        "Fala, musa! Transforma essa brisa em tempestade!",
-        "Tu é poderosa ou não é? Arrebenta!",
-        "Mantém a postura, garota! Elegância na passada."
+    resume: [
+        "Isso aí! De volta ao jogo. Acelera!",
+        "Bora retomar essa bronca! Foco total!",
+        "É isso mermão, desistir não é opção. Voa!",
+        "Sente o vento na cara de novo. É a melhor sensação do mundo."
     ],
-    neutral: [
-        "Esquece! O ritmo tá insano!",
-        "Sente o vento na cara, essa é a tua energia.",
-        "Não para não, o asfalto é todo nosso!",
-        "Se o vento tá contra, a gente fura ele na marra!",
-        "Respira fundo, sente a maresia e vai!",
-        "Tá fluindo igual água, continua!",
-        "Deixa de ser brisa e vira logo um Tufão!"
-    ]
+    finish: [
+        "Que isso! Tirou onda demais hoje! Treino pago com sucesso.",
+        "Esquece! Tu é uma máquina. Merece aquele açaí reforçado.",
+        "Final de prova! Mandou muito bem, representou os Filhos do Vento.",
+        "Acabou! Agora é só resenha e descanso. Tu é sinistro!"
+    ],
+    motivation: {
+        male: [
+            "Bora, meu parceiro! Mostra que tu é cria!",
+            "Acelera, malandro! Tá num ritmo de passeio no shopping?",
+            "Isso aí, guerreiro! Mantém a postura de quem manda na pista!",
+            "Fala, irmão! Transforma essa brisa em um furacão!",
+            "Tu é máquina ou não é? Bota pra quebrar!",
+            "Não deixa o ritmo cair, moleque! Tá voando!",
+            "Passada larga, respiração controlada. Tu é o dono da orla!"
+        ],
+        female: [
+            "Bora, minha parceira! Mostra a força da natureza!",
+            "Acelera, braba! Deixa todo mundo comendo poeira!",
+            "Isso aí, guerreira! Postura de rainha do asfalto!",
+            "Fala, musa! Transforma essa brisa em tempestade!",
+            "Tu é poderosa ou não é? Arrebenta, gata!",
+            "Mantém o foco, irmã! Tá linda a passada!",
+            "Não para não! Tu nasceu pra brilhar nessa pista!"
+        ],
+        neutral: [
+            "Esquece! O ritmo tá insano!",
+            "Sente a maresia e vai! O Rio é nosso!",
+            "Pique de trem bala! Ninguém te pega hoje!",
+            "Se o vento tá contra, a gente fura ele na marra!",
+            "Tá fluindo igual água, continua assim!",
+            "Deixa de ser brisa e vira logo um Tufão!",
+            "Foca na linha de chegada, o resto é paisagem!"
+        ]
+    }
 };
 
-const getCariocaMessage = (gender: 'male' | 'female' = 'male') => {
-    const genderPhrases = gender === 'female' ? CARIOCA_COACH.female : CARIOCA_COACH.male;
-    const pool = [...CARIOCA_COACH.neutral, ...genderPhrases];
+const getCariocaMessage = (category: 'start' | 'pause' | 'resume' | 'finish' | 'motivation', gender: 'male' | 'female' = 'male') => {
+    let pool: string[] = [];
+    
+    if (category === 'motivation') {
+        const genderPhrases = gender === 'female' ? CARIOCA_DICT.motivation.female : CARIOCA_DICT.motivation.male;
+        pool = [...CARIOCA_DICT.motivation.neutral, ...genderPhrases];
+    } else {
+        pool = CARIOCA_DICT[category];
+    }
+    
     return pool[Math.floor(Math.random() * pool.length)];
 };
 
@@ -331,6 +362,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   const [route, setRoute] = useState<RoutePoint[]>([]);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [motivationalMsg, setMotivationalMsg] = useState<string | null>(null);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   
   const mapRef = useRef<L.Map | null>(null);
   const watchId = useRef<number | null>(null);
@@ -341,6 +373,26 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   // Mock Goal
   useEffect(() => { setDailyGoal("Correr 5km sentindo a brisa."); }, []);
 
+  // Load Voices for more natural sound
+  useEffect(() => {
+      const loadVoices = () => {
+          const voices = window.speechSynthesis.getVoices();
+          if (voices.length > 0) {
+              setAvailableVoices(voices);
+          }
+      };
+      
+      // Initial load
+      loadVoices();
+      
+      // Event listener for when voices are loaded (Chrome needs this)
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+      
+      return () => {
+          window.speechSynthesis.onvoiceschanged = null;
+      };
+  }, []);
+
   // Helper to toggle full screen
   const requestFullScreen = () => {
       const elem = document.documentElement;
@@ -349,23 +401,41 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       }
   };
 
-  // Helper for Audio Motivation (Carioca Style)
+  // Helper for Audio Motivation (Natural Carioca Style)
   const speak = (text: string) => {
       if ('speechSynthesis' in window) {
-          // Cancel previous speech
-          window.speechSynthesis.cancel();
+          window.speechSynthesis.cancel(); // Cancel previous
           
           const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = 'pt-BR'; // Force Brazilian Portuguese
-          utterance.rate = 1.2; // Cariocas speak slightly faster
-          utterance.pitch = 1.05; // Slight pitch up for energy
+          
+          // 1. Voice Selection Strategy: Prioritize "Google Português do Brasil" or "Luciana" or "Joana"
+          // These sound much better than the default Microsoft voices
+          const ptVoices = availableVoices.filter(v => v.lang.includes('pt-BR') || v.lang.includes('pt-PT'));
+          const bestVoice = ptVoices.find(v => v.name.includes('Google')) || 
+                            ptVoices.find(v => v.name.includes('Luciana')) || 
+                            ptVoices.find(v => v.name.includes('Joana')) || 
+                            ptVoices[0];
+                            
+          if (bestVoice) utterance.voice = bestVoice;
+          
+          utterance.lang = 'pt-BR';
+          
+          // 2. Prosody Variation (Humanization)
+          // Vary speed slightly to sound less robotic
+          const randomRate = 1.1 + Math.random() * 0.15; // 1.1 to 1.25 (Faster = more colloquial)
+          utterance.rate = randomRate; 
+          
+          // Vary pitch slightly
+          const randomPitch = 0.95 + Math.random() * 0.1; // 0.95 to 1.05
+          utterance.pitch = randomPitch;
+
           window.speechSynthesis.speak(utterance);
       }
   };
 
   const triggerMotivation = () => {
       const gender = currentUser?.gender || 'male';
-      const phrase = getCariocaMessage(gender);
+      const phrase = getCariocaMessage('motivation', gender);
       setMotivationalMsg(phrase);
       speak(phrase);
       setTimeout(() => setMotivationalMsg(null), 6000);
@@ -377,7 +447,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       requestFullScreen(); 
 
       // Intro Message
-      const intro = CARIOCA_COACH.intro[Math.floor(Math.random() * CARIOCA_COACH.intro.length)];
+      const intro = getCariocaMessage('start');
       speak(intro);
 
       // Delay actual screen switch
@@ -455,18 +525,18 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                   { enableHighAccuracy: true, maximumAge: 1000 }
               );
           }
-      }, 2000); 
+      }, 2500); 
   };
 
   const pauseRun = () => {
       setIsPaused(true);
-      speak("Pausa pra respirar.");
+      speak(getCariocaMessage('pause'));
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
   };
 
   const resumeRun = () => {
       setIsPaused(false);
-      speak("Bora voltar! Foco!");
+      speak(getCariocaMessage('resume'));
       timerIntervalRef.current = window.setInterval(() => {
           setElapsedSeconds(prev => prev + 1); 
       }, 1000);
@@ -476,7 +546,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       pauseRun();
       setScreen('finish');
       if(playSound) playSound('success');
-      speak("Boa! Treino finalizado. Tu mandou muito bem.");
+      speak(getCariocaMessage('finish'));
       if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
   };
 
