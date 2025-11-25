@@ -16,6 +16,7 @@ import { Seasons } from './components/Seasons';
 import { UserProfile } from './components/UserProfile';
 import { AdminPanel } from './components/AdminPanel';
 import { Login } from './components/Login';
+import { ProLounge } from './components/ProLounge'; // Import new component
 import { Member, WindRank, RaceEvent, Activity, Season, Sponsor, Story, PlanType, Notification, TrainingPlan, PrivateMessage, SoundType } from './types';
 
 // Firebase Imports
@@ -402,6 +403,30 @@ const App: React.FC = () => {
       }
   };
 
+  const handleDeleteNotification = async (id: string) => {
+      playUISound('click');
+      if (currentUser && currentUser.notifications) {
+          const updatedNotes = currentUser.notifications.filter(n => n.id !== id);
+          try {
+              await updateDoc(doc(db, 'members', currentUserId), { notifications: updatedNotes });
+          } catch (e) {
+              setMembers(prev => prev.map(m => m.id === currentUserId ? { ...m, notifications: updatedNotes } : m));
+          }
+      }
+  };
+
+  const handleClearReadNotifications = async () => {
+      playUISound('click');
+      if (currentUser && currentUser.notifications) {
+          const updatedNotes = currentUser.notifications.filter(n => !n.read);
+          try {
+              await updateDoc(doc(db, 'members', currentUserId), { notifications: updatedNotes });
+          } catch (e) {
+              setMembers(prev => prev.map(m => m.id === currentUserId ? { ...m, notifications: updatedNotes } : m));
+          }
+      }
+  };
+
   // --- MESSAGING LOGIC ---
   const handleSendMessage = async (receiverId: string, content: string) => {
       playUISound('click');
@@ -495,11 +520,9 @@ const App: React.FC = () => {
     }
   };
 
-  // === ACHIEVEMENT LOGIC HELPERS ===
+  // ... (Helper calculations remain the same) ...
   const calculateStreak = (activities: Activity[]) => {
       if (!activities || activities.length === 0) return 0;
-      
-      // Extract unique days (YYYY-MM-DD)
       const dates = Array.from(new Set(activities.map(a => a.date.split('T')[0])))
         .sort((a,b) => new Date(b).getTime() - new Date(a).getTime());
       
@@ -513,7 +536,6 @@ const App: React.FC = () => {
       lastRun.setHours(0,0,0,0);
       
       const diffSinceLast = (today.getTime() - lastRun.getTime()) / (1000 * 3600 * 24);
-      // If more than 1 day passed since last run, streak is broken (or just started today/yesterday)
       if (diffSinceLast > 1) return 0; 
 
       streak = 1;
@@ -536,10 +558,8 @@ const App: React.FC = () => {
   const getPaceInSeconds = (paceStr: string) => {
       if (!paceStr) return 99999;
       try {
-        // Handle multiple formats: 5'30", 5:30, 5.5, etc.
         const clean = paceStr.replace(/[^\d:.]/g, '').replace(':', '.'); 
         const parts = paceStr.split(/[:']/);
-        
         if (parts.length === 2) {
             const min = parseInt(parts[0], 10);
             const sec = parseInt(parts[1].replace('"', ''), 10);
@@ -552,7 +572,7 @@ const App: React.FC = () => {
   };
 
   const handleUpdateUser = async (updatedMember: Member) => {
-    // Check Achievements
+    // ... (Achievement Logic remains the same) ...
     const newAchievements = [...(updatedMember.achievements || [])];
     const currentStreak = calculateStreak(updatedMember.activities);
     const activities = updatedMember.activities || [];
@@ -588,6 +608,7 @@ const App: React.FC = () => {
     }
   };
 
+  // ... (Other handlers remain almost the same, passed down correctly) ...
   const handleUpdateActivePlan = async (plan: TrainingPlan) => {
       const updatedUser = { ...currentUser, activePlan: plan };
       await handleUpdateUser(updatedUser);
@@ -724,9 +745,6 @@ const App: React.FC = () => {
         return;
     }
     playUISound('click');
-    // In Firestore, deleteDoc would be used. Currently just hiding via state in original app, 
-    // but here we should actually delete or archive. 
-    // For simplicity, we won't implement full delete as it's risky for seeding.
     alert("Função de remover desabilitada temporariamente para segurança dos dados.");
   };
 
@@ -747,7 +765,6 @@ const App: React.FC = () => {
         setEvents(prev => [...prev, newEvent]);
     }
     
-    // Notify all members
     members.forEach(m => {
         addNotification(m.id, {
             title: "Nova Prova!",
@@ -759,7 +776,6 @@ const App: React.FC = () => {
 
   const handleRemoveEvent = async (id: string) => {
     playUISound('click');
-    // await deleteDoc(doc(db, 'events', id));
     alert("Remoção de eventos desabilitada.");
   };
 
@@ -806,7 +822,6 @@ const App: React.FC = () => {
     }
   };
 
-  // --- Upgrade Request Handler ---
   const handleRequestUpgrade = () => {
     playUISound('click');
     const admins = members.filter(m => m.role === 'admin' || m.role === 'super_admin');
@@ -828,7 +843,6 @@ const App: React.FC = () => {
     if(showLanding) setShowLanding(false);
   };
 
-  // --- Admin Handlers ---
   const handleUpdateSeason = async (updatedSeason: Season) => {
     playUISound('success');
     try {
@@ -849,8 +863,6 @@ const App: React.FC = () => {
 
   const handleRemoveSponsor = async (id: string) => {
     playUISound('click');
-    // await deleteDoc(doc(db, 'sponsors', id));
-    // Also remove from season if present
     const updatedSeasonSponsors = currentSeason.sponsors.filter(s => s.id !== id);
     try {
         await updateDoc(doc(db, 'seasons', 'current'), { sponsors: updatedSeasonSponsors });
@@ -893,6 +905,22 @@ const App: React.FC = () => {
                 isDark={theme === 'dark'} 
                 onNavigate={(tab) => handleTabChange(tab)}
                 playSound={playUISound}
+                onUpgradeRequest={handleRequestUpgrade} 
+            />
+        );
+      case 'vip': // New VIP Case
+        if (currentUser.plan !== 'pro' && currentUser.role !== 'admin' && currentUser.role !== 'super_admin') {
+            return <div className="text-center p-10">Acesso Restrito</div>;
+        }
+        return (
+            <ProLounge 
+                currentUser={currentUser} 
+                onContactSupport={() => {
+                    // Find an admin to chat with
+                    const admin = members.find(m => m.role === 'admin' || m.role === 'super_admin');
+                    if (admin) handleOpenChat(admin.id);
+                    else alert("Nenhum suporte disponível no momento.");
+                }}
             />
         );
       case 'run':
@@ -925,6 +953,7 @@ const App: React.FC = () => {
                 isDark={theme === 'dark'} 
                 onNavigate={(tab) => handleTabChange(tab)}
                 playSound={playUISound}
+                onUpgradeRequest={handleRequestUpgrade}
             />
         );
       case 'leaderboard':
@@ -988,6 +1017,7 @@ const App: React.FC = () => {
                 isDark={theme === 'dark'} 
                 onNavigate={(tab) => handleTabChange(tab)}
                 playSound={playUISound}
+                onUpgradeRequest={handleRequestUpgrade}
             />
         );
     }
@@ -1024,6 +1054,8 @@ const App: React.FC = () => {
         isDark={theme === 'dark'} 
         currentUser={currentUser} 
         onMarkNotificationsRead={markNotificationsRead}
+        onDeleteNotification={handleDeleteNotification}
+        onClearReadNotifications={handleClearReadNotifications}
         onViewProfile={(id) => handleViewProfile(id)}
       />
       <main className="flex-1 w-full h-full overflow-y-auto overflow-x-hidden relative scroll-smooth">

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LayoutDashboard, Trophy, Activity, Bot, Users, BookOpen, CalendarDays, Heart, Medal, ScrollText, PlayCircle, Wind, Sun, Moon, Flag, Settings, Menu, X, ChevronRight, LogOut, Bell, CheckCheck, Home } from 'lucide-react';
+import { LayoutDashboard, Trophy, Activity, Bot, Users, BookOpen, CalendarDays, Heart, Medal, ScrollText, PlayCircle, Wind, Sun, Moon, Flag, Settings, Menu, X, ChevronRight, LogOut, Bell, CheckCheck, Home, Trash2, Crown } from 'lucide-react';
 import { Member } from '../types';
 
 interface NavigationProps {
@@ -10,15 +10,28 @@ interface NavigationProps {
   isDark: boolean;
   currentUser: Member;
   onMarkNotificationsRead: () => void;
+  onDeleteNotification: (id: string) => void;
+  onClearReadNotifications: () => void;
   onViewProfile?: (id: string) => void;
 }
 
-export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab, toggleTheme, isDark, currentUser, onMarkNotificationsRead, onViewProfile }) => {
+export const Navigation: React.FC<NavigationProps> = ({ 
+  activeTab, 
+  setActiveTab, 
+  toggleTheme, 
+  isDark, 
+  currentUser, 
+  onMarkNotificationsRead,
+  onDeleteNotification,
+  onClearReadNotifications,
+  onViewProfile 
+}) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Painel', category: 'Principal' },
+    { id: 'vip', icon: Crown, label: 'VIP Lounge', category: 'Principal', requiredPlan: 'pro' }, // New VIP Item
     { id: 'season', icon: Flag, label: 'Temporada', category: 'Principal' },
     { id: 'run', icon: PlayCircle, label: 'Correr', isAction: true, category: 'Ação' }, 
     { id: 'leaderboard', icon: Trophy, label: 'Ranking', category: 'Competição' },
@@ -47,6 +60,10 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
         const allowedRoles = Array.isArray(item.requiredRole) ? item.requiredRole : [item.requiredRole];
         if (!allowedRoles.includes(currentUser.role)) return acc;
     }
+    // Check Plan Access (For VIP Lounge visualization in menu)
+    if (item.requiredPlan && item.requiredPlan === 'pro' && currentUser.plan !== 'pro' && currentUser.role !== 'admin' && currentUser.role !== 'super_admin') {
+        return acc;
+    }
     
     if (item.isAction) return acc; // Skip action button in list
     if (!acc[item.category]) acc[item.category] = [];
@@ -58,10 +75,10 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
   const unreadCount = currentUser.notifications.filter(n => !n.read).length;
   const toggleNotifications = () => {
       setShowNotifications(!showNotifications);
-  };
-
-  const handleClearNotifications = () => {
-      onMarkNotificationsRead();
+      if (!showNotifications && unreadCount > 0) {
+          // Optional: Mark read on open? Or let user do it manually. 
+          // Current request implies specific dismissal, so we keep manual actions.
+      }
   };
 
   return (
@@ -86,9 +103,13 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
           <div className="space-y-1 overflow-y-auto custom-scrollbar flex-1 -mx-2 px-2">
             {navItems
               .filter(item => {
-                  if (!item.requiredRole) return true;
-                  const allowed = Array.isArray(item.requiredRole) ? item.requiredRole : [item.requiredRole];
-                  return allowed.includes(currentUser.role);
+                  if (item.requiredRole) {
+                      const allowed = Array.isArray(item.requiredRole) ? item.requiredRole : [item.requiredRole];
+                      if (!allowed.includes(currentUser.role)) return false;
+                  }
+                  // Only show VIP if PRO or Admin
+                  if (item.requiredPlan === 'pro' && currentUser.plan !== 'pro' && currentUser.role !== 'admin' && currentUser.role !== 'super_admin') return false;
+                  return true;
               })
               .map((item) => (
               <button
@@ -154,35 +175,57 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
       {showNotifications && (
           <div className="fixed left-64 top-4 z-[60] w-80 max-h-[85vh] flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl animate-fade-in">
               <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-900/90 backdrop-blur-sm rounded-t-xl z-10">
-                  <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2 text-sm">
                     Notificações 
                     {unreadCount > 0 && <span className="bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{unreadCount}</span>}
                   </h3>
                   <div className="flex gap-1">
-                      {unreadCount > 0 && (
-                          <button onClick={handleClearNotifications} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded text-green-500" title="Marcar todas como lidas">
-                              <CheckCheck size={16} />
-                          </button>
-                      )}
-                      <button onClick={() => setShowNotifications(false)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded"><X size={16} className="text-gray-500" /></button>
+                      <button 
+                        onClick={onClearReadNotifications} 
+                        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded text-gray-500 hover:text-red-500 transition-colors" 
+                        title="Limpar Lidas"
+                      >
+                          <Trash2 size={14} />
+                      </button>
+                      <button 
+                        onClick={onMarkNotificationsRead} 
+                        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded text-gray-500 hover:text-green-500 transition-colors" 
+                        title="Marcar todas como lidas"
+                      >
+                          <CheckCheck size={14} />
+                      </button>
+                      <button onClick={() => setShowNotifications(false)} className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded"><X size={16} className="text-gray-500" /></button>
                   </div>
               </div>
               <div className="divide-y divide-gray-100 dark:divide-gray-800 overflow-y-auto custom-scrollbar flex-1">
                   {currentUser.notifications.length === 0 ? (
-                      <div className="p-8 text-center text-gray-500 text-sm">Nenhuma notificação recente.</div>
+                      <div className="p-8 text-center text-gray-500 text-sm">Nenhuma notificação.</div>
                   ) : (
                       currentUser.notifications.map(note => (
-                          <div key={note.id} className={`p-4 transition-colors ${!note.read ? 'bg-amber-50 dark:bg-amber-500/5' : 'opacity-70 grayscale-[0.5]'}`}>
-                              <div className="flex items-start gap-3">
+                          <div key={note.id} className={`p-4 transition-colors relative group hover:bg-gray-50 dark:hover:bg-gray-800/50 ${!note.read ? 'bg-amber-50/50 dark:bg-amber-500/5' : 'opacity-70'}`}>
+                              <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDeleteNotification(note.id);
+                                }}
+                                className="absolute top-2 right-2 p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                                title="Excluir"
+                              >
+                                <X size={12} />
+                              </button>
+                              
+                              <div className="flex items-start gap-3 pr-4">
                                   <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${
-                                      note.type === 'success' ? 'bg-green-500' :
-                                      note.type === 'achievement' ? 'bg-yellow-400' :
-                                      note.type === 'warning' ? 'bg-red-500' : 'bg-blue-500'
+                                      !note.read ? (
+                                          note.type === 'success' ? 'bg-green-500' :
+                                          note.type === 'achievement' ? 'bg-yellow-400' :
+                                          note.type === 'warning' ? 'bg-red-500' : 'bg-blue-500'
+                                      ) : 'bg-gray-300 dark:bg-gray-600'
                                   }`}></div>
                                   <div>
-                                      <h4 className={`text-sm ${!note.read ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-700 dark:text-gray-300'}`}>{note.title}</h4>
+                                      <h4 className={`text-sm ${!note.read ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-700 dark:text-gray-400'}`}>{note.title}</h4>
                                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-snug">{note.message}</p>
-                                      <span className="text-[10px] text-gray-400 mt-2 block">{new Date(note.date).toLocaleString()}</span>
+                                      <span className="text-[10px] text-gray-400 mt-2 block">{new Date(note.date).toLocaleDateString()}</span>
                                   </div>
                               </div>
                           </div>
@@ -299,11 +342,14 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
                 <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-950">
                      <div className="flex justify-between items-center mb-4 px-2">
                         <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2"><Bell size={16} /> Notificações</h3>
-                        {unreadCount > 0 && (
-                            <button onClick={handleClearNotifications} className="text-xs text-green-600 dark:text-green-400 font-bold uppercase flex items-center gap-1 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">
-                                <CheckCheck size={12} /> Marcar Lidas
+                        <div className="flex gap-2">
+                            <button onClick={onClearReadNotifications} className="text-xs text-gray-500 hover:text-red-500 flex items-center gap-1 bg-gray-200 dark:bg-gray-800 px-2 py-1 rounded transition-colors">
+                                <Trash2 size={12} /> Limpar Lidas
                             </button>
-                        )}
+                            <button onClick={onMarkNotificationsRead} className="text-xs text-green-600 dark:text-green-400 font-bold uppercase flex items-center gap-1 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">
+                                <CheckCheck size={12} /> Ler Tudo
+                            </button>
+                        </div>
                      </div>
                      <div className="space-y-3">
                         {currentUser.notifications.length === 0 ? (
@@ -313,12 +359,18 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
                             </div>
                         ) : (
                             currentUser.notifications.map(note => (
-                                <div key={note.id} className={`p-4 rounded-xl border transition-all ${!note.read ? 'bg-white dark:bg-gray-800 border-amber-200 dark:border-amber-500/30 shadow-sm' : 'bg-gray-100 dark:bg-gray-900 border-transparent opacity-70'}`}>
-                                     <div className="flex justify-between items-start mb-1">
+                                <div key={note.id} className={`relative p-4 rounded-xl border transition-all group ${!note.read ? 'bg-white dark:bg-gray-800 border-amber-200 dark:border-amber-500/30 shadow-sm' : 'bg-gray-100 dark:bg-gray-900 border-transparent opacity-70'}`}>
+                                     <button 
+                                        onClick={(e) => { e.stopPropagation(); onDeleteNotification(note.id); }}
+                                        className="absolute top-2 right-2 p-2 text-gray-400 hover:text-red-500 transition-colors opacity-50 group-hover:opacity-100"
+                                     >
+                                         <X size={14} />
+                                     </button>
+                                     <div className="flex justify-between items-start mb-1 pr-6">
                                         <h4 className={`font-bold text-sm ${!note.read ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>{note.title}</h4>
                                         <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">{new Date(note.date).toLocaleDateString()}</span>
                                      </div>
-                                     <p className="text-xs text-gray-600 dark:text-gray-400 leading-snug">{note.message}</p>
+                                     <p className="text-xs text-gray-600 dark:text-gray-400 leading-snug pr-4">{note.message}</p>
                                 </div>
                             ))
                         )}
