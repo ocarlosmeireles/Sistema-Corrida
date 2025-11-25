@@ -6,8 +6,7 @@ import {
   doc, 
   setDoc, 
   getDocs, 
-  writeBatch,
-  enableIndexedDbPersistence
+  writeBatch
 } from "firebase/firestore";
 import { Member, WindRank, RaceEvent, Story, Sponsor, Season } from "../types";
 
@@ -25,30 +24,24 @@ const firebaseConfig = {
 // Initialize Firebase
 let app;
 let dbInstance;
+let isInitialized = false;
 
 try {
     app = initializeApp(firebaseConfig);
     // Initialize Cloud Firestore with default settings
-    // Avoid persistentLocalCache for now as it can cause issues in some sandbox environments
+    // Persistence removed to prevent errors in restricted environments
     dbInstance = getFirestore(app);
-    
-    // Optional: Attempt persistence, but catch error if it fails (e.g. multiple tabs)
-    enableIndexedDbPersistence(dbInstance).catch((err) => {
-        if (err.code == 'failed-precondition') {
-            console.warn('Persistence failed: Multiple tabs open');
-        } else if (err.code == 'unimplemented') {
-            console.warn('Persistence not supported');
-        }
-    });
-
+    isInitialized = true;
 } catch (e) {
     console.error("Firebase Initialization Error:", e);
     // Create a dummy DB object if initialization completely fails to prevent app crash on import
     // This allows the app to load in "Offline Mock Mode" purely
     dbInstance = {} as any; 
+    isInitialized = false;
 }
 
 export const db = dbInstance;
+export const isFirebaseInitialized = isInitialized;
 
 // --- MOCK DATA (Exported for fallback) ---
 export const INITIAL_SPONSORS: Sponsor[] = [
@@ -263,7 +256,7 @@ export const MOCK_SEASON: Season = {
 // --- SEED FUNCTION ---
 export const seedDatabase = async () => {
     // Defensive check: If db is not a valid Firestore instance (e.g. initialization failed), skip seeding
-    if (!db || !db.type) {
+    if (!isInitialized) {
         console.warn("Skipping Firebase Seeding: Database not initialized correctly.");
         return;
     }

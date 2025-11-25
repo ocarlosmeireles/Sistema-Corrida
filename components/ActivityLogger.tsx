@@ -48,6 +48,8 @@ export const ActivityLogger: React.FC<ActivityLoggerProps> = ({ onAddActivity })
     setFeeling('good');
   };
 
+  const quickTags = ['Vento Contra', 'Chuva', 'Sol Forte', 'Ladeira', 'Pista', 'Areia Fofa', 'Intervalado', 'Longo'];
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 transition-colors duration-300">
       <div className="flex items-center space-x-2 mb-6">
@@ -140,6 +142,18 @@ export const ActivityLogger: React.FC<ActivityLoggerProps> = ({ onAddActivity })
             placeholder="Como foi o treino? Terreno, clima..."
             className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl py-2.5 px-4 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none h-20 resize-none transition-colors"
           />
+          <div className="flex flex-wrap gap-2 mt-2">
+              {quickTags.map(tag => (
+                  <button 
+                      key={tag}
+                      type="button"
+                      onClick={() => setNotes(prev => prev ? `${prev} | ${tag}` : tag)}
+                      className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900 hover:text-amber-600 dark:hover:text-amber-400 transition-colors border border-gray-200 dark:border-gray-600"
+                  >
+                      + {tag}
+                  </button>
+              ))}
+          </div>
         </div>
 
         <button 

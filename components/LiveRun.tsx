@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { Activity, RoutePoint, Notification, Member, WorkoutMode, SoundType } from '../types';
-import { Play, Pause, Square, Flag, CheckCircle, Zap, Wind, Mountain, Footprints, Cloud, Tornado, Lock, Unlock, Crosshair, Mic, Target, Award, Share2, Volume2, VolumeX, X, Image as ImageIcon, Download, Loader2, Music, ChevronUp, ChevronDown, Flame, Activity as ActivityIcon, Gauge, Feather, Signal, Maximize, Minimize, Megaphone } from 'lucide-react';
+import { Play, Pause, Square, Flag, CheckCircle, Zap, Wind, Mountain, Footprints, Cloud, Tornado, Lock, Unlock, Crosshair, Mic, Target, Award, Share2, Volume2, VolumeX, X, Image as ImageIcon, Download, Loader2, Music, ChevronUp, ChevronDown, Flame, Activity as ActivityIcon, Gauge, Feather, Signal, Maximize, Minimize, Megaphone, PenTool, Map as MapIcon, Layers } from 'lucide-react';
 import * as L from 'leaflet';
 import { SocialShareModal } from './SocialShareModal';
 
@@ -352,6 +351,9 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   const [isStarting, setIsStarting] = useState(false); // Start Animation State
   const [isPaused, setIsPaused] = useState(false);
   
+  // View Mode (Map vs Data)
+  const [viewMode, setViewMode] = useState<'data' | 'map'>('data');
+
   // Telemetry & Other States...
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [distance, setDistance] = useState(0);
@@ -363,6 +365,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [motivationalMsg, setMotivationalMsg] = useState<string | null>(null);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [runNotes, setRunNotes] = useState(''); // Notes state
   
   // Share Modal State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -372,6 +375,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   const timerIntervalRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const lastAltitudeRef = useRef<number | null>(null);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   // Mock Goal
   useEffect(() => { setDailyGoal("Correr 5km sentindo a brisa."); }, []);
@@ -388,6 +392,23 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       window.speechSynthesis.onvoiceschanged = loadVoices;
       return () => { window.speechSynthesis.onvoiceschanged = null; };
   }, []);
+
+  const requestWakeLock = async () => {
+      try {
+          if ('wakeLock' in navigator) {
+              wakeLockRef.current = await navigator.wakeLock.request('screen');
+          }
+      } catch (err) {
+          console.warn('Wake Lock error:', err);
+      }
+  };
+
+  const releaseWakeLock = async () => {
+      if (wakeLockRef.current) {
+          await wakeLockRef.current.release();
+          wakeLockRef.current = null;
+      }
+  };
 
   const requestFullScreen = () => {
       const elem = document.documentElement;
@@ -425,8 +446,10 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       if(playSound) playSound('start'); 
       setIsStarting(true); 
       requestFullScreen(); 
+      requestWakeLock(); // Keep screen on
       const intro = getCariocaMessage('start');
       speak(intro);
+      setRunNotes(''); // Reset notes
 
       setTimeout(() => {
           setScreen('active');
@@ -443,17 +466,22 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
               watchId.current = navigator.geolocation.watchPosition(
                   (pos) => {
                       setGpsAccuracy(pos.coords.accuracy);
-                      if(pos.coords.accuracy > 35) return; 
+                      if(pos.coords.accuracy > 40) return; // Ignore poor signal
+                      
                       const speedMps = pos.coords.speed || 0; 
                       const instantPaceSec = speedMps > 0.5 ? (1000 / speedMps) : 0;
                       setCurrentPace(instantPaceSec);
+                      
                       const currentAlt = pos.coords.altitude;
                       if (currentAlt !== null && lastAltitudeRef.current !== null) {
                           const diff = currentAlt - lastAltitudeRef.current;
-                          if (diff > 0.5) { setElevationGain(prev => prev + diff); }
+                          // Basic filter for elevation jumps
+                          if (diff > 0.5 && diff < 10) { setElevationGain(prev => prev + diff); }
                       }
                       if (currentAlt !== null) lastAltitudeRef.current = currentAlt;
+                      
                       const pt: RoutePoint = { lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: pos.timestamp, speed: speedMps, altitude: currentAlt };
+                      
                       setRoute(prev => {
                           if (prev.length === 0) return [pt];
                           const last = prev[prev.length - 1];
@@ -462,7 +490,9 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                           const Δφ = (pt.lat-last.lat) * Math.PI/180; const Δλ = (pt.lng-last.lng) * Math.PI/180;
                           const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
                           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); const d = R * c; 
-                          if (d > 2) { 
+                          
+                          // Filter noise: only add point if moved > 3m
+                          if (d > 3) { 
                               const newTotalDistKm = (distance * 1000 + d) / 1000;
                               setDistance(newTotalDistKm);
                               const weight = currentUser?.weight || 70;
@@ -475,7 +505,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                       });
                   },
                   err => console.warn(err),
-                  { enableHighAccuracy: true, maximumAge: 1000 }
+                  { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
               );
           }
       }, 2500); 
@@ -490,17 +520,25 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   const resumeRun = () => {
       setIsPaused(false);
       speak(getCariocaMessage('resume'));
+      // Adjust start time to account for pause
+      const now = Date.now();
+      const pausedDuration = now - (startTimeRef.current + (elapsedSeconds * 1000));
+      startTimeRef.current = startTimeRef.current + pausedDuration;
+
       timerIntervalRef.current = window.setInterval(() => {
-          setElapsedSeconds(prev => prev + 1); 
+          const seconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+          setElapsedSeconds(seconds);
       }, 1000);
   };
 
   const endRun = () => {
       pauseRun();
       setScreen('finish');
+      releaseWakeLock();
       if(playSound) playSound('success');
       speak(getCariocaMessage('finish'));
       if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      if (watchId.current) navigator.geolocation.clearWatch(watchId.current);
   };
 
   const formatTime = (totalSeconds: number) => {
@@ -575,41 +613,60 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
 
   // --- ACTIVE HUD (PROFESSIONAL MODE) ---
   if (screen === 'active') {
+      const isMapMode = viewMode === 'map';
       return (
           <div className="fixed inset-0 bg-black z-[100] flex flex-col select-none overflow-hidden">
-              <div className="absolute inset-0 z-0 opacity-40 grayscale-[50%]">
+              {/* Map Background Layer */}
+              <div className={`absolute inset-0 z-0 transition-opacity duration-500 ${isMapMode ? 'opacity-100' : 'opacity-40 grayscale-[50%]'}`}>
                   <LiveMap route={route} isPaused={isPaused} onRef={(map) => mapRef.current = map} />
-                  <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/80 via-transparent to-black/90"></div>
+                  {!isMapMode && <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/80 via-black/40 to-black/90"></div>}
               </div>
+
               {motivationalMsg && (
-                  <div className="absolute top-20 left-4 right-4 z-50 animate-fade-in">
+                  <div className="absolute top-20 left-4 right-4 z-50 animate-fade-in pointer-events-none">
                       <div className="bg-amber-500 text-black p-4 rounded-2xl shadow-xl border-2 border-white flex items-center gap-3">
                           <div className="bg-black text-amber-500 p-2 rounded-full"><Megaphone className="animate-bounce" size={20} /></div>
                           <p className="font-black text-sm uppercase italic leading-tight">{motivationalMsg}</p>
                       </div>
                   </div>
               )}
-              <div className="relative z-10 p-4 flex justify-between items-center">
+
+              {/* Top Bar */}
+              <div className="relative z-10 p-4 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent">
                   <GpsStatus accuracy={gpsAccuracy} />
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 items-end">
                       <div className="bg-red-600/20 border border-red-500/50 text-red-500 px-2 py-1 rounded-md flex items-center gap-1 animate-pulse">
                           <div className="w-2 h-2 rounded-full bg-red-500"></div>
                           <span className="text-[10px] font-bold uppercase">REC</span>
                       </div>
+                      <button 
+                        onClick={() => setViewMode(prev => prev === 'data' ? 'map' : 'data')}
+                        className="bg-gray-800/80 border border-gray-600 text-white p-2 rounded-lg hover:bg-gray-700 transition-colors"
+                      >
+                          {isMapMode ? <Layers size={20} /> : <MapIcon size={20} />}
+                      </button>
                   </div>
               </div>
-              <div className="relative z-10 flex-1 flex flex-col justify-end pb-8 px-4">
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                      <div className="bg-black/40 backdrop-blur-sm rounded-2xl p-4 border-l-4 border-amber-500">
-                          <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest block mb-1">Distância (km)</span>
-                          <span className="text-6xl font-black text-white italic tracking-tighter">{distance.toFixed(2)}</span>
+
+              {/* HUD Content */}
+              <div className={`relative z-10 flex-1 flex flex-col justify-end pb-8 px-4 transition-opacity duration-300 ${isMapMode ? 'opacity-90' : 'opacity-100'}`}>
+                  
+                  {/* Stats Area - Conditional Layout based on Mode */}
+                  {!isMapMode && (
+                      <div className="grid grid-cols-2 gap-4 mb-6">
+                          <div className="bg-black/40 backdrop-blur-md rounded-3xl p-6 border-l-4 border-amber-500 shadow-lg">
+                              <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest block mb-1">Distância</span>
+                              <span className="text-6xl font-black text-white italic tracking-tighter">{distance.toFixed(2)}<span className="text-2xl text-amber-500 not-italic">km</span></span>
+                          </div>
+                          <div className="bg-black/40 backdrop-blur-md rounded-3xl p-6 border-l-4 border-blue-500 text-right shadow-lg">
+                              <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest block mb-1">Tempo</span>
+                              <span className="text-5xl font-mono font-bold text-white tracking-tight">{formatTime(elapsedSeconds)}</span>
+                          </div>
                       </div>
-                      <div className="bg-black/40 backdrop-blur-sm rounded-2xl p-4 border-l-4 border-blue-500 text-right">
-                          <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest block mb-1">Tempo</span>
-                          <span className="text-5xl font-mono font-bold text-white tracking-tight">{formatTime(elapsedSeconds)}</span>
-                      </div>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2 mb-6">
+                  )}
+
+                  {/* Secondary Stats Grid */}
+                  <div className={`grid grid-cols-4 gap-2 mb-6 ${isMapMode ? 'bg-black/80 p-4 rounded-2xl border border-gray-800' : ''}`}>
                       <div className="bg-gray-900/80 backdrop-blur rounded-xl p-2 text-center border border-white/5">
                           <span className="text-[8px] text-gray-500 uppercase font-bold block">Pace Atual</span>
                           <span className="text-lg font-black text-white">{formatPace(currentPace)}</span>
@@ -627,23 +684,25 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                           <span className="text-lg font-black text-green-400">{elevationGain.toFixed(0)}m</span>
                       </div>
                   </div>
+
+                  {/* Controls */}
                   <div className="flex items-center gap-4">
                       {isPaused ? (
                           <>
-                            <LongPressButton onComplete={endRun} className="flex-1 bg-red-600 text-white h-16 rounded-2xl font-bold uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-red-900/50">
-                                <Square size={24} fill="currentColor" /> Parar
+                            <LongPressButton onComplete={endRun} className="flex-1 bg-red-600 text-white h-20 rounded-2xl font-bold uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-red-900/50 border border-red-400/20">
+                                <Square size={24} fill="currentColor" /> Segure p/ Parar
                             </LongPressButton>
-                            <button onClick={resumeRun} className="flex-[2] bg-green-500 text-black h-16 rounded-2xl font-black uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-green-500/20 hover:scale-105 transition-transform">
-                                <Play size={28} fill="currentColor" /> Retomar
+                            <button onClick={resumeRun} className="flex-[2] bg-green-500 text-black h-20 rounded-2xl font-black uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-green-500/20 hover:scale-105 transition-transform border border-green-400/20">
+                                <Play size={32} fill="currentColor" /> RETOMAR
                             </button>
                           </>
                       ) : (
                           <>
-                            <button onClick={triggerMotivation} className="w-16 h-16 bg-amber-500/20 border border-amber-500 text-amber-500 rounded-2xl flex items-center justify-center active:scale-95 transition-transform">
-                                <Zap size={28} fill="currentColor" />
+                            <button onClick={triggerMotivation} className="w-20 h-20 bg-amber-500/10 border border-amber-500/50 text-amber-500 rounded-2xl flex items-center justify-center active:scale-95 transition-transform shadow-lg shadow-amber-500/10">
+                                <Zap size={32} fill="currentColor" />
                             </button>
-                            <button onClick={pauseRun} className="flex-1 bg-white text-black h-16 rounded-2xl font-black uppercase tracking-wide flex items-center justify-center gap-2 shadow-xl">
-                                <Pause size={28} fill="currentColor" /> Pausar
+                            <button onClick={pauseRun} className="flex-1 bg-white text-black h-20 rounded-2xl font-black uppercase tracking-wide flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-transform">
+                                <Pause size={32} fill="currentColor" /> PAUSAR
                             </button>
                           </>
                       )}
@@ -656,11 +715,11 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   // --- FINISH SCREEN ---
   if (screen === 'finish') {
       return (
-          <div className="h-full bg-black p-8 flex flex-col items-center justify-center text-center relative overflow-hidden">
+          <div className="h-full bg-black p-8 flex flex-col items-center justify-center text-center relative overflow-hidden overflow-y-auto custom-scrollbar">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.15)_0%,rgba(0,0,0,0)_70%)] pointer-events-none"></div>
               
-              <div className="relative z-10 bg-gray-900/50 p-8 rounded-3xl border border-white/10 backdrop-blur-md w-full max-w-sm">
-                  <div className="inline-block p-4 rounded-full bg-amber-500 text-black mb-6 shadow-lg shadow-amber-500/30">
+              <div className="relative z-10 bg-gray-900/50 p-8 rounded-3xl border border-white/10 backdrop-blur-md w-full max-w-md animate-fade-in">
+                  <div className="inline-block p-4 rounded-full bg-amber-500 text-black mb-6 shadow-lg shadow-amber-500/30 animate-bounce-slow">
                       <Flag size={40} fill="currentColor" />
                   </div>
                   
@@ -686,6 +745,23 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                       </div>
                   </div>
 
+                  {/* Notes Input Area */}
+                  <div className="mb-6 relative group">
+                      <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl opacity-30 group-focus-within:opacity-100 transition-opacity blur"></div>
+                      <div className="relative bg-gray-900 rounded-xl border border-gray-700 p-3">
+                          <div className="flex items-center gap-2 mb-2 text-amber-500">
+                              <PenTool size={14} />
+                              <label className="text-xs font-bold uppercase tracking-wider">Notas da Corrida</label>
+                          </div>
+                          <textarea 
+                              value={runNotes}
+                              onChange={(e) => setRunNotes(e.target.value)}
+                              className="w-full bg-transparent text-white text-sm focus:outline-none resize-none h-24 placeholder-gray-600"
+                              placeholder="Descreva como foi seu treino, terreno, sensação..."
+                          />
+                      </div>
+                  </div>
+
                   <button 
                       onClick={() => setIsShareModalOpen(true)}
                       className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl uppercase tracking-widest mb-3 hover:scale-105 transition-transform shadow-lg flex items-center justify-center gap-2"
@@ -699,7 +775,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                       pace: formatPace(avgPace),
                       date: new Date().toISOString().split('T')[0],
                       feeling: 'good',
-                      notes: '',
+                      notes: runNotes,
                       elevationGain: elevationGain,
                       calories: calories,
                       route: route,
@@ -708,7 +784,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                       Salvar e Sair
                   </button>
                   
-                  <button onClick={() => setScreen('select')} className="text-gray-500 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors">
+                  <button onClick={() => { setScreen('select'); setRunNotes(''); }} className="text-gray-500 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors">
                       Descartar sem salvar
                   </button>
               </div>

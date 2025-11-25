@@ -9,31 +9,53 @@ export const MarketingStudio: React.FC = () => {
   const [progressStatus, setProgressStatus] = useState('');
   const [hasKey, setHasKey] = useState(false);
 
+  const getApiKey = () => {
+    try {
+      // @ts-ignore
+      if (typeof process !== 'undefined' && process.env) {
+        // @ts-ignore
+        return process.env.API_KEY || '';
+      }
+      return '';
+    } catch (e) {
+      return '';
+    }
+  };
+
   // Check API Key for Veo
   useEffect(() => {
     const checkKey = async () => {
-      if (window.aistudio && window.aistudio.hasSelectedApiKey) {
-        const has = await window.aistudio.hasSelectedApiKey();
-        setHasKey(has);
-      } else {
-        // Fallback for dev environments without the specific window object
-        setHasKey(!!process.env.API_KEY);
+      try {
+        if ((window as any).aistudio && (window as any).aistudio.hasSelectedApiKey) {
+          const has = await (window as any).aistudio.hasSelectedApiKey();
+          setHasKey(has);
+        } else {
+          // Fallback for dev environments without the specific window object
+          setHasKey(Boolean(getApiKey()));
+        }
+      } catch (e) {
+        console.warn("Error checking API key status:", e);
+        setHasKey(false);
       }
     };
     checkKey();
   }, []);
 
   const handleSelectKey = async () => {
-    if (window.aistudio && window.aistudio.openSelectKey) {
-      await window.aistudio.openSelectKey();
-      setHasKey(await window.aistudio.hasSelectedApiKey());
+    try {
+      if ((window as any).aistudio && (window as any).aistudio.openSelectKey) {
+        await (window as any).aistudio.openSelectKey();
+        setHasKey(await (window as any).aistudio.hasSelectedApiKey());
+      }
+    } catch (e) {
+      console.error("Error opening key selection:", e);
     }
   };
 
   const generateVideo = async () => {
     if (!hasKey) {
       await handleSelectKey();
-      if (!await window.aistudio.hasSelectedApiKey()) return;
+      if ((window as any).aistudio && !await (window as any).aistudio.hasSelectedApiKey()) return;
     }
 
     setLoading(true);
@@ -42,7 +64,8 @@ export const MarketingStudio: React.FC = () => {
 
     try {
       // Re-initialize to ensure fresh key
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const apiKey = getApiKey();
+      const ai = new GoogleGenAI({ apiKey: apiKey });
       
       const prompt = `
         A high-energy, cinematic welcome video for a running team app called "Filhos do Vento".
@@ -93,7 +116,7 @@ export const MarketingStudio: React.FC = () => {
       const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
       if (downloadLink) {
           // Fetch with key to display
-          const finalUri = `${downloadLink}&key=${process.env.API_KEY}`;
+          const finalUri = `${downloadLink}&key=${apiKey}`;
           setVideoUri(finalUri);
       }
 

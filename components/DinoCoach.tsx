@@ -15,8 +15,7 @@ export const DinoCoach: React.FC<DinoCoachProps> = ({ member, userPlan = 'basic'
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Fetch tip logic (Only run if pro to avoid api calls, OR run it but show blurred)
-  // To simulate the "See but don't touch", we can fetch it or just show a placeholder if basic.
+  // Fetch tip logic
   useEffect(() => {
     let isMounted = true;
     const fetchTip = async () => {
@@ -25,7 +24,15 @@ export const DinoCoach: React.FC<DinoCoachProps> = ({ member, userPlan = 'basic'
           if (isMounted) setTip("A brisa de hoje traz renovação. [Conteúdo exclusivo bloqueado]");
           return;
       }
-      const result = await getWindCoachingTip(member, member.activities[member.activities.length - 1]);
+      
+      // Sort activities to get the true latest one, handling potential unsorted data
+      const sortedActivities = [...(member.activities || [])].sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      
+      const lastActivity = sortedActivities.length > 0 ? sortedActivities[0] : undefined;
+        
+      const result = await getWindCoachingTip(member, lastActivity);
       if (isMounted) setTip(result);
     };
     fetchTip();

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/Dashboard';
@@ -17,11 +16,11 @@ import { UserProfile } from './components/UserProfile';
 import { AdminPanel } from './components/AdminPanel';
 import { Login } from './components/Login';
 import { ProLounge } from './components/ProLounge';
-import { ActivityHistory } from './components/ActivityHistory'; // Import new component
+import { ActivityHistory } from './components/ActivityHistory';
 import { Member, WindRank, RaceEvent, Activity, Season, Sponsor, Story, PlanType, Notification, TrainingPlan, PrivateMessage, SoundType } from './types';
 
 // Firebase Imports
-import { db, seedDatabase, MOCK_MEMBERS, MOCK_EVENTS, MOCK_STORIES, INITIAL_SPONSORS, MOCK_SEASON } from './services/firebase';
+import { db, seedDatabase, isFirebaseInitialized, MOCK_MEMBERS, MOCK_EVENTS, MOCK_STORIES, INITIAL_SPONSORS, MOCK_SEASON } from './services/firebase';
 import { collection, onSnapshot, doc, updateDoc, addDoc, setDoc, query, orderBy } from 'firebase/firestore';
 
 const App: React.FC = () => {
@@ -57,6 +56,11 @@ const App: React.FC = () => {
       let unsubscribeDMs: () => void;
 
       const initData = async () => {
+          if (!isFirebaseInitialized) {
+              console.warn("Firebase not initialized. Using Local Mock Data.");
+              return;
+          }
+
           try {
               await seedDatabase();
               
@@ -276,16 +280,21 @@ const App: React.FC = () => {
              if (m.plan === 'pro' && m.proExpiresAt) {
                  const expireDate = new Date(m.proExpiresAt);
                  if (now > expireDate) {
-                     try {
-                        const updatedMember = { ...m, plan: 'basic' as PlanType, proExpiresAt: undefined };
-                        // @ts-ignore
-                        updateDoc(doc(db, 'members', m.id), updatedMember);
-                        addNotification(m.id, {
-                            title: "Plano PRO Expirado",
-                            message: "Seu período de 30 dias encerrou. Funcionalidades limitadas.",
-                            type: "warning"
-                        });
-                     } catch(e) { console.warn("Could not update expired member", e); }
+                     if (isFirebaseInitialized) {
+                         try {
+                            const updatedMember = { ...m, plan: 'basic' as PlanType, proExpiresAt: undefined };
+                            // @ts-ignore
+                            updateDoc(doc(db, 'members', m.id), updatedMember);
+                            addNotification(m.id, {
+                                title: "Plano PRO Expirado",
+                                message: "Seu período de 30 dias encerrou. Funcionalidades limitadas.",
+                                type: "warning"
+                            });
+                         } catch(e) { console.warn("Could not update expired member", e); }
+                     } else {
+                         // Local update
+                         setMembers(prev => prev.map(pm => pm.id === m.id ? { ...pm, plan: 'basic', proExpiresAt: undefined } : pm));
+                     }
                  }
              }
          });
@@ -349,7 +358,9 @@ const App: React.FC = () => {
       };
 
       try {
-          await setDoc(doc(db, 'members', newMember.id), newMember);
+          if (isFirebaseInitialized) {
+            await setDoc(doc(db, 'members', newMember.id), newMember);
+          }
           setMembers(prev => [...prev, newMember]);
           handleLogin(newMember.id);
       } catch(e) {
@@ -385,9 +396,13 @@ const App: React.FC = () => {
             ...notification
         };
         const updatedNotifications = [newNote, ...(member.notifications || [])];
-        try {
-            await updateDoc(doc(db, 'members', memberId), { notifications: updatedNotifications });
-        } catch (e) {
+        if (isFirebaseInitialized) {
+            try {
+                await updateDoc(doc(db, 'members', memberId), { notifications: updatedNotifications });
+            } catch (e) {
+                setMembers(prev => prev.map(m => m.id === memberId ? { ...m, notifications: updatedNotifications } : m));
+            }
+        } else {
             setMembers(prev => prev.map(m => m.id === memberId ? { ...m, notifications: updatedNotifications } : m));
         }
     }
@@ -401,10 +416,14 @@ const App: React.FC = () => {
       playUISound('click');
       if (currentUser && currentUser.notifications) {
           const updatedNotes = currentUser.notifications.map(n => ({ ...n, read: true }));
-          try {
-            await updateDoc(doc(db, 'members', currentUserId), { notifications: updatedNotes });
-          } catch (e) {
-            setMembers(prev => prev.map(m => m.id === currentUserId ? { ...m, notifications: updatedNotes } : m));
+          if (isFirebaseInitialized) {
+              try {
+                await updateDoc(doc(db, 'members', currentUserId), { notifications: updatedNotes });
+              } catch (e) {
+                setMembers(prev => prev.map(m => m.id === currentUserId ? { ...m, notifications: updatedNotes } : m));
+              }
+          } else {
+              setMembers(prev => prev.map(m => m.id === currentUserId ? { ...m, notifications: updatedNotes } : m));
           }
       }
   };
@@ -413,9 +432,13 @@ const App: React.FC = () => {
       playUISound('click');
       if (currentUser && currentUser.notifications) {
           const updatedNotes = currentUser.notifications.filter(n => n.id !== id);
-          try {
-              await updateDoc(doc(db, 'members', currentUserId), { notifications: updatedNotes });
-          } catch (e) {
+          if (isFirebaseInitialized) {
+              try {
+                  await updateDoc(doc(db, 'members', currentUserId), { notifications: updatedNotes });
+              } catch (e) {
+                  setMembers(prev => prev.map(m => m.id === currentUserId ? { ...m, notifications: updatedNotes } : m));
+              }
+          } else {
               setMembers(prev => prev.map(m => m.id === currentUserId ? { ...m, notifications: updatedNotes } : m));
           }
       }
@@ -425,9 +448,13 @@ const App: React.FC = () => {
       playUISound('click');
       if (currentUser && currentUser.notifications) {
           const updatedNotes = currentUser.notifications.filter(n => !n.read);
-          try {
-              await updateDoc(doc(db, 'members', currentUserId), { notifications: updatedNotes });
-          } catch (e) {
+          if (isFirebaseInitialized) {
+              try {
+                  await updateDoc(doc(db, 'members', currentUserId), { notifications: updatedNotes });
+              } catch (e) {
+                  setMembers(prev => prev.map(m => m.id === currentUserId ? { ...m, notifications: updatedNotes } : m));
+              }
+          } else {
               setMembers(prev => prev.map(m => m.id === currentUserId ? { ...m, notifications: updatedNotes } : m));
           }
       }
@@ -444,10 +471,14 @@ const App: React.FC = () => {
           read: false
       };
       
-      try {
-        await addDoc(collection(db, 'direct_messages'), newMessage);
-      } catch (e) {
-        setDirectMessages(prev => [...prev, newMessage]);
+      if (isFirebaseInitialized) {
+          try {
+            await addDoc(collection(db, 'direct_messages'), newMessage);
+          } catch (e) {
+            setDirectMessages(prev => [...prev, newMessage]);
+          }
+      } else {
+          setDirectMessages(prev => [...prev, newMessage]);
       }
       
       const sender = members.find(m => m.id === currentUserId);
@@ -487,35 +518,39 @@ const App: React.FC = () => {
     const newScore = !isFollowing ? currentUser.seasonScore + 5 : currentUser.seasonScore;
     
     try {
-        await updateDoc(doc(db, 'members', currentUserId), { 
-            following: newFollowing, 
-            seasonScore: newScore 
-        });
+        if (isFirebaseInitialized) {
+            await updateDoc(doc(db, 'members', currentUserId), { 
+                following: newFollowing, 
+                seasonScore: newScore 
+            });
 
-        const targetMember = members.find(m => m.id === targetId);
-        if (targetMember) {
-            const newFollowers = isFollowing
-                ? targetMember.followers.filter(id => id !== currentUserId)
-                : [...targetMember.followers, currentUserId];
-            await updateDoc(doc(db, 'members', targetId), { followers: newFollowers });
-
-            if (!isFollowing) {
-                addNotification(targetId, {
-                    title: "Novo Seguidor",
-                    message: `${currentUser.name} começou a seguir você!`,
-                    type: "info"
-                });
+            const targetMember = members.find(m => m.id === targetId);
+            if (targetMember) {
+                const newFollowers = isFollowing
+                    ? targetMember.followers.filter(id => id !== currentUserId)
+                    : [...targetMember.followers, currentUserId];
+                await updateDoc(doc(db, 'members', targetId), { followers: newFollowers });
             }
+        } else {
+            setMembers(prev => prev.map(m => {
+                if(m.id === currentUserId) return { ...m, following: newFollowing, seasonScore: newScore };
+                if(m.id === targetId) {
+                    const newFollowers = isFollowing ? m.followers.filter(id => id !== currentUserId) : [...m.followers, currentUserId];
+                    return { ...m, followers: newFollowers };
+                }
+                return m;
+            }));
+        }
+
+        if (!isFollowing) {
+            addNotification(targetId, {
+                title: "Novo Seguidor",
+                message: `${currentUser.name} começou a seguir você!`,
+                type: "info"
+            });
         }
     } catch (e) {
-        setMembers(prev => prev.map(m => {
-            if(m.id === currentUserId) return { ...m, following: newFollowing, seasonScore: newScore };
-            if(m.id === targetId) {
-                const newFollowers = isFollowing ? m.followers.filter(id => id !== currentUserId) : [...m.followers, currentUserId];
-                return { ...m, followers: newFollowers };
-            }
-            return m;
-        }));
+        // Fallback logic already handled by else block for initialization check or generic error catch if needed
     }
   };
 
@@ -593,7 +628,10 @@ const App: React.FC = () => {
     
     const memberToSave = { ...updatedMember, achievements: newAchievements };
     try {
-        await updateDoc(doc(db, 'members', updatedMember.id), memberToSave);
+        if (isFirebaseInitialized) {
+            await updateDoc(doc(db, 'members', updatedMember.id), memberToSave);
+        }
+        setMembers(prev => prev.map(m => m.id === updatedMember.id ? memberToSave : m));
     } catch(e) {
         setMembers(prev => prev.map(m => m.id === updatedMember.id ? memberToSave : m));
     }
@@ -618,11 +656,14 @@ const App: React.FC = () => {
       }
 
       try {
-        // @ts-ignore
-        await updateDoc(doc(db, 'members', memberId), {
-            plan: newPlan,
-            proExpiresAt: proExpiresAt || null 
-        });
+        if (isFirebaseInitialized) {
+            // @ts-ignore
+            await updateDoc(doc(db, 'members', memberId), {
+                plan: newPlan,
+                proExpiresAt: proExpiresAt || null 
+            });
+        }
+        setMembers(prev => prev.map(m => m.id === memberId ? { ...m, plan: newPlan, proExpiresAt: proExpiresAt } : m));
       } catch(e) {
         setMembers(prev => prev.map(m => m.id === memberId ? { ...m, plan: newPlan, proExpiresAt: proExpiresAt } : m));
       }
@@ -638,7 +679,10 @@ const App: React.FC = () => {
 
   const handleUpdateProfile = async (updatedMember: Member) => {
     try {
-        await updateDoc(doc(db, 'members', updatedMember.id), updatedMember);
+        if (isFirebaseInitialized) {
+            await updateDoc(doc(db, 'members', updatedMember.id), updatedMember);
+        }
+        setMembers(prev => prev.map(m => m.id === updatedMember.id ? updatedMember : m));
     } catch (e) {
         setMembers(prev => prev.map(m => m.id === updatedMember.id ? updatedMember : m));
     }
@@ -722,7 +766,10 @@ const App: React.FC = () => {
     };
     
     try {
-        await setDoc(doc(db, 'members', newMember.id), newMember);
+        if (isFirebaseInitialized) {
+            await setDoc(doc(db, 'members', newMember.id), newMember);
+        }
+        setMembers(prev => [...prev, newMember]);
     } catch(e) {
         setMembers(prev => [...prev, newMember]);
     }
@@ -750,7 +797,10 @@ const App: React.FC = () => {
         id: Date.now().toString()
     };
     try {
-        await setDoc(doc(db, 'events', newEvent.id), newEvent);
+        if (isFirebaseInitialized) {
+            await setDoc(doc(db, 'events', newEvent.id), newEvent);
+        }
+        setEvents(prev => [...prev, newEvent]);
     } catch (e) {
         setEvents(prev => [...prev, newEvent]);
     }
@@ -772,7 +822,10 @@ const App: React.FC = () => {
   const handleAddStory = async (newStory: Story) => {
      playUISound('success');
      try {
-        await setDoc(doc(db, 'stories', newStory.id), newStory);
+        if (isFirebaseInitialized) {
+            await setDoc(doc(db, 'stories', newStory.id), newStory);
+        }
+        setStories(prev => [newStory, ...prev]);
      } catch(e) {
         setStories(prev => [newStory, ...prev]);
      }
@@ -796,7 +849,10 @@ const App: React.FC = () => {
     if(likedStory) {
         const updatedStory = { ...likedStory, likes: likedStory.likes + 1 };
         try {
-            await updateDoc(doc(db, 'stories', id), { likes: updatedStory.likes });
+            if (isFirebaseInitialized) {
+                await updateDoc(doc(db, 'stories', id), { likes: updatedStory.likes });
+            }
+            setStories(prev => prev.map(s => s.id === id ? updatedStory : s));
         } catch(e) {
             setStories(prev => prev.map(s => s.id === id ? updatedStory : s));
         }
@@ -836,7 +892,10 @@ const App: React.FC = () => {
   const handleUpdateSeason = async (updatedSeason: Season) => {
     playUISound('success');
     try {
-        await setDoc(doc(db, 'seasons', 'current'), updatedSeason);
+        if (isFirebaseInitialized) {
+            await setDoc(doc(db, 'seasons', 'current'), updatedSeason);
+        }
+        setCurrentSeason(updatedSeason);
     } catch (e) {
         setCurrentSeason(updatedSeason);
     }
@@ -845,7 +904,10 @@ const App: React.FC = () => {
   const handleAddSponsor = async (newSponsor: Sponsor) => {
     playUISound('success');
     try {
-        await setDoc(doc(db, 'sponsors', newSponsor.id), newSponsor);
+        if (isFirebaseInitialized) {
+            await setDoc(doc(db, 'sponsors', newSponsor.id), newSponsor);
+        }
+        setAllSponsors(prev => [...prev, newSponsor]);
     } catch (e) {
         setAllSponsors(prev => [...prev, newSponsor]);
     }
@@ -855,7 +917,10 @@ const App: React.FC = () => {
     playUISound('click');
     const updatedSeasonSponsors = currentSeason.sponsors.filter(s => s.id !== id);
     try {
-        await updateDoc(doc(db, 'seasons', 'current'), { sponsors: updatedSeasonSponsors });
+        if (isFirebaseInitialized) {
+            await updateDoc(doc(db, 'seasons', 'current'), { sponsors: updatedSeasonSponsors });
+        }
+        setCurrentSeason({ ...currentSeason, sponsors: updatedSeasonSponsors });
     } catch(e) {
         setCurrentSeason({ ...currentSeason, sponsors: updatedSeasonSponsors });
     }

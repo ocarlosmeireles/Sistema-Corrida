@@ -2,7 +2,23 @@
 import { GoogleGenAI } from "@google/genai";
 import { Activity, Member } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getApiKey = (): string => {
+  try {
+    // @ts-ignore
+    if (typeof process !== 'undefined' && process.env) {
+      // @ts-ignore
+      return process.env.API_KEY || '';
+    }
+    return '';
+  } catch (e) {
+    return '';
+  }
+};
+
+const getAiClient = () => {
+  // Returns client or throws if key is missing/invalid, handled by callers
+  return new GoogleGenAI({ apiKey: getApiKey() });
+};
 
 export const getWindCoachingTip = async (
   member: Member,
@@ -35,6 +51,7 @@ export const getWindCoachingTip = async (
   `;
 
   try {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model,
       contents: prompt,
@@ -96,6 +113,7 @@ export const getTrainingAnalysis = async (activities: Activity[]): Promise<strin
     `;
 
     try {
+        const ai = getAiClient();
         const response = await ai.models.generateContent({
             model,
             contents: prompt,
@@ -121,6 +139,7 @@ export const getNutritionAdvice = async (query: string): Promise<string> => {
   `;
 
   try {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model,
       contents: prompt,
@@ -168,6 +187,7 @@ export const generateTrainingPlan = async (
   `;
 
   try {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model,
       contents: prompt,
