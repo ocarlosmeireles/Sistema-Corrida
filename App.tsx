@@ -297,11 +297,57 @@ const App: React.FC = () => {
           Notification.requestPermission();
       }
       
+      // Redirect admins to admin tab, others to dashboard
       const user = members.find(m => m.id === userId);
       if (user && (user.role === 'admin' || user.role === 'super_admin')) {
-        setActiveTab('admin');
+          setActiveTab('admin');
       } else {
-        setActiveTab('dashboard');
+          setActiveTab('dashboard');
+      }
+  };
+
+  const handleRegister = async (data: any) => {
+      const newMember: Member = {
+          id: Date.now().toString(),
+          name: data.name,
+          password: data.password,
+          gender: data.gender,
+          bio: data.bio,
+          location: data.location,
+          weight: data.weight,
+          height: data.height,
+          role: 'member',
+          plan: 'basic', // Default plan is BASIC, requires Admin to upgrade
+          rank: WindRank.BREEZE,
+          totalDistance: 0,
+          seasonScore: 0,
+          avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=random&color=fff`,
+          achievements: [],
+          activities: [],
+          followers: [],
+          following: [],
+          notifications: [{
+              id: Date.now().toString(),
+              title: "Bem-vindo!",
+              message: "Sua jornada nos Filhos do Vento começou.",
+              type: "success",
+              read: false,
+              date: new Date().toISOString()
+          }],
+          shoes: []
+      };
+
+      try {
+          await setDoc(doc(db, 'members', newMember.id), newMember);
+          // Also update local state immediately for smoother UX if offline
+          setMembers(prev => [...prev, newMember]);
+          handleLogin(newMember.id);
+      } catch(e) {
+          console.error("Registration failed", e);
+          alert("Erro ao cadastrar. Tente novamente (offline mode pode estar ativo).");
+          // Fallback registration
+          setMembers(prev => [...prev, newMember]);
+          handleLogin(newMember.id);
       }
   };
 
@@ -947,7 +993,14 @@ const App: React.FC = () => {
   }
 
   if (!isAuthenticated) {
-    return <Login users={members} onLogin={handleLogin} playSound={playUISound} />;
+    return (
+      <Login 
+        users={members} 
+        onLogin={handleLogin} 
+        onRegister={handleRegister}
+        playSound={playUISound} 
+      />
+    );
   }
 
   return (

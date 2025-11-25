@@ -110,7 +110,9 @@ export interface Member {
   plan: PlanType; 
   proExpiresAt?: string; 
   bio?: string; 
-  location?: string; 
+  location?: string;
+  weight?: number; // kg
+  height?: number; // cm
   totalDistance: number;
   seasonScore: number; 
   rank: WindRank;

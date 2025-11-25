@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Member } from '../types';
-import { MapPin, ChevronLeft, UserPlus, UserCheck, Activity as ActivityIcon, Camera, X, Trophy, Link as LinkIcon, MessageCircle, Edit3, Save, LogOut, Upload, Image as ImageIcon } from 'lucide-react';
+import { MapPin, ChevronLeft, UserPlus, UserCheck, Activity as ActivityIcon, Camera, X, Trophy, Link as LinkIcon, MessageCircle, Edit3, Save, LogOut, Upload, Image as ImageIcon, Scale, Ruler } from 'lucide-react';
 import { ACHIEVEMENTS_LIST } from './Achievements';
 
 interface UserProfileProps {
@@ -26,7 +26,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ member, currentUser, o
       name: member.name,
       bio: member.bio || '',
       location: member.location || '',
-      avatarUrl: member.avatarUrl
+      avatarUrl: member.avatarUrl,
+      weight: member.weight || '',
+      height: member.height || ''
   });
 
   // Camera & Upload State
@@ -61,7 +63,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ member, currentUser, o
           name: member.name,
           bio: member.bio || '',
           location: member.location || '',
-          avatarUrl: member.avatarUrl
+          avatarUrl: member.avatarUrl,
+          weight: member.weight || '',
+          height: member.height || ''
       });
   }, [member]);
 
@@ -72,7 +76,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ member, currentUser, o
               name: editForm.name,
               bio: editForm.bio,
               location: editForm.location,
-              avatarUrl: editForm.avatarUrl
+              avatarUrl: editForm.avatarUrl,
+              weight: editForm.weight ? Number(editForm.weight) : undefined,
+              height: editForm.height ? Number(editForm.height) : undefined
           });
           if(playSound) playSound('success');
       }
@@ -202,7 +208,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ member, currentUser, o
                 onClick={() => { if(playSound) playSound('click'); onLogout && onLogout(); }}
                 className="text-xs flex items-center gap-1 text-red-500 hover:text-red-400 font-bold px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors border border-red-500/20"
               >
-                  <LogOut size={14} /> Sair
+                  <LogOut size={14} /> Sair da Conta
               </button>
           )}
       </div>
@@ -285,6 +291,28 @@ export const UserProfile: React.FC<UserProfileProps> = ({ member, currentUser, o
                                 />
                             </div>
                         </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-xs text-gray-500 uppercase font-bold block mb-1">Peso (kg)</label>
+                                <input 
+                                    type="number" 
+                                    value={editForm.weight} 
+                                    onChange={e => setEditForm({...editForm, weight: e.target.value})}
+                                    className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 uppercase font-bold block mb-1">Altura (cm)</label>
+                                <input 
+                                    type="number" 
+                                    value={editForm.height} 
+                                    onChange={e => setEditForm({...editForm, height: e.target.value})}
+                                    className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                />
+                            </div>
+                        </div>
+
                         <div>
                             <label className="text-xs text-gray-500 uppercase font-bold block mb-1">Bio (Sobre mim)</label>
                             <textarea 
@@ -317,17 +345,31 @@ export const UserProfile: React.FC<UserProfileProps> = ({ member, currentUser, o
                             {isMe && (
                                 <button 
                                     onClick={() => { if(playSound) playSound('click'); setIsEditing(true); }}
-                                    className="text-gray-400 hover:text-amber-500 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
+                                    className="flex items-center gap-2 text-gray-500 hover:text-amber-500 dark:text-gray-400 dark:hover:text-amber-400 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all border border-gray-200 dark:border-gray-600"
                                     title="Editar Perfil"
                                 >
-                                    <Edit3 size={20} />
+                                    <Edit3 size={16} /> 
+                                    <span className="text-xs font-bold">Editar Dados</span>
                                 </button>
                             )}
                         </div>
                         
-                        <p className="text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
-                            <MapPin size={16} /> {member.location || 'Rio de Janeiro, RJ'}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-4 mt-2 text-gray-500 dark:text-gray-400 text-xs">
+                            <span className="flex items-center gap-1">
+                                <MapPin size={14} /> {member.location || 'Rio de Janeiro, RJ'}
+                            </span>
+                            {member.weight && (
+                                <span className="flex items-center gap-1">
+                                    <Scale size={14} /> {member.weight}kg
+                                </span>
+                            )}
+                            {member.height && (
+                                <span className="flex items-center gap-1">
+                                    <Ruler size={14} /> {member.height}cm
+                                </span>
+                            )}
+                        </div>
+
                         <p className="text-gray-600 dark:text-gray-300 mt-3 max-w-lg leading-relaxed italic bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700/50">
                             "{member.bio || 'Correndo atrás do vento.'}"
                         </p>

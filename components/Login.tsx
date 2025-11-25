@@ -1,48 +1,83 @@
 
 import React, { useState } from 'react';
-import { Member, SoundType } from '../types';
-import { Wind, Lock, ArrowRight, CheckCircle2, ShieldAlert, Search } from 'lucide-react';
+import { Member, SoundType, WindRank } from '../types';
+import { Wind, Lock, ArrowRight, CheckCircle2, UserPlus, User, MapPin, FileText, Users, Scale, Ruler } from 'lucide-react';
 
 interface LoginProps {
   users: Member[];
   onLogin: (userId: string) => void;
+  onRegister: (data: any) => void;
   playSound?: (type: SoundType) => void;
 }
 
-export const Login: React.FC<LoginProps> = ({ users, onLogin, playSound }) => {
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [password, setPassword] = useState('');
+export const Login: React.FC<LoginProps> = ({ users, onLogin, onRegister, playSound }) => {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  
+  // Login State
+  const [loginName, setLoginName] = useState('');
+  const [loginPass, setLoginPass] = useState('');
   const [error, setError] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
 
-  const handleUserSelect = (id: string) => {
-      if(playSound) playSound('click');
-      setSelectedUserId(id);
-      setPassword('');
-      setError('');
-  };
+  // Register State
+  const [regName, setRegName] = useState('');
+  const [regPass, setRegPass] = useState('');
+  const [regPassConfirm, setRegPassConfirm] = useState('');
+  const [regGender, setRegGender] = useState<'male'|'female'>('male');
+  const [regBio, setRegBio] = useState('');
+  const [regLocation, setRegLocation] = useState('');
+  const [regWeight, setRegWeight] = useState('');
+  const [regHeight, setRegHeight] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLoginSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      if (!selectedUserId) return;
-
-      const user = users.find(u => u.id === selectedUserId);
+      const user = users.find(u => u.name.toLowerCase() === loginName.toLowerCase());
       
-      // Simple password check (mock)
-      // In real app, hash comparison on backend
-      const validPassword = user?.password || '123'; // Fallback for dev
-
-      if (user && password === validPassword) {
+      // Verificação simples de senha (em produção usaria hash/auth real)
+      if (user && user.password === loginPass) {
+          if(playSound) playSound('hero');
           onLogin(user.id);
       } else {
           if(playSound) playSound('error');
-          setError('Senha incorreta. Tente novamente.');
+          setError('Credenciais inválidas. Verifique nome e senha.');
       }
   };
 
-  const filteredUsers = users.filter(user => 
-      user.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleRegisterSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!regName || !regPass || !regPassConfirm) {
+          setError("Preencha os campos obrigatórios.");
+          return;
+      }
+
+      if (regPass !== regPassConfirm) {
+          setError("As senhas não coincidem.");
+          return;
+      }
+      
+      const exists = users.some(u => u.name.toLowerCase() === regName.toLowerCase());
+      if (exists) {
+          setError("Este nome de atleta já está em uso.");
+          return;
+      }
+
+      if(playSound) playSound('success');
+      
+      onRegister({
+          name: regName,
+          password: regPass,
+          gender: regGender,
+          bio: regBio,
+          location: regLocation,
+          weight: regWeight ? parseFloat(regWeight) : undefined,
+          height: regHeight ? parseFloat(regHeight) : undefined
+      });
+  };
+
+  const toggleMode = (m: 'login' | 'register') => {
+      if(playSound) playSound('click');
+      setMode(m);
+      setError('');
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -58,106 +93,197 @@ export const Login: React.FC<LoginProps> = ({ users, onLogin, playSound }) => {
             <Wind className="text-white" size={32} />
           </div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">Filhos do Vento</h1>
-          <p className="text-gray-400 text-sm mt-2">Área de Membros</p>
+          <p className="text-gray-400 text-sm mt-2">Portal do Atleta</p>
         </div>
 
-        {!selectedUserId ? (
-          <div className="space-y-4 animate-fade-in">
-            <p className="text-xs text-gray-500 uppercase font-bold mb-2 text-center tracking-widest">Selecione seu perfil</p>
-            
-            {/* Search Input */}
-            <div className="relative mb-2 group">
-                <Search className="absolute left-3 top-2.5 text-gray-500 group-focus-within:text-amber-500 transition-colors" size={16} />
-                <input 
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Buscar atleta por nome..."
-                    className="w-full bg-gray-800 border border-gray-700 rounded-xl py-2 pl-9 pr-4 text-sm text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
-                />
-            </div>
-            
-            {searchQuery && (
-                <p className="text-[10px] text-gray-500 text-right px-1">
-                    {filteredUsers.length} encontrado(s)
-                </p>
-            )}
+        {/* Toggle Switch */}
+        <div className="flex bg-gray-800 p-1 rounded-xl mb-6">
+            <button 
+                onClick={() => toggleMode('login')}
+                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${mode === 'login' ? 'bg-gray-700 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+                Entrar
+            </button>
+            <button 
+                onClick={() => toggleMode('register')}
+                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${mode === 'register' ? 'bg-gray-700 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+                Cadastrar
+            </button>
+        </div>
 
-            <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar space-y-2">
-              {filteredUsers.length > 0 ? (
-                  filteredUsers.map(user => (
-                    <button
-                      key={user.id}
-                      onClick={() => handleUserSelect(user.id)}
-                      className="w-full flex items-center gap-4 p-3 rounded-xl border border-gray-800 hover:border-amber-500/50 hover:bg-gray-800/50 transition-all duration-300 group"
-                    >
-                      <img src={user.avatarUrl} alt={user.name} className="w-10 h-10 rounded-full bg-gray-800 object-cover border border-gray-700" />
-                      <div className="text-left flex-1">
-                        <div className="flex items-center gap-2">
-                            <p className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">{user.name}</p>
-                            {user.role !== 'member' && <ShieldAlert size={12} className="text-amber-600" />}
-                        </div>
-                        <p className="text-[10px] text-gray-500 uppercase">{user.rank}</p>
-                      </div>
-                      <ArrowRight size={16} className="text-gray-600 group-hover:text-amber-500 transition-colors opacity-0 group-hover:opacity-100" />
-                    </button>
-                  ))
-              ) : (
-                  <div className="text-center py-8 border border-dashed border-gray-800 rounded-xl">
-                      <p className="text-sm text-gray-500">Nenhum atleta encontrado.</p>
-                  </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleLogin} className="animate-fade-in space-y-6">
-             <button 
-                type="button" 
-                onClick={() => {
-                    if(playSound) playSound('click');
-                    setSelectedUserId(null);
-                }}
-                className="text-xs text-gray-500 hover:text-white transition-colors mb-4 flex items-center gap-1"
-             >
-                 ← Voltar para lista
-             </button>
-
-             <div className="flex items-center gap-4 p-4 bg-gray-800/50 rounded-2xl border border-gray-800 mb-6">
-                 <img src={users.find(u => u.id === selectedUserId)?.avatarUrl} className="w-12 h-12 rounded-full" alt="User" />
-                 <div>
-                     <p className="text-white font-bold">{users.find(u => u.id === selectedUserId)?.name}</p>
-                     <p className="text-xs text-gray-500">Confirmar identidade</p>
-                 </div>
+        {mode === 'login' ? (
+          <form onSubmit={handleLoginSubmit} className="animate-fade-in space-y-4">
+             <div>
+               <label className="block text-xs text-gray-500 uppercase font-bold mb-1 ml-1">Nome de Atleta</label>
+               <div className="relative">
+                 <User className="absolute left-3 top-3.5 text-gray-500" size={18} />
+                 <input 
+                   type="text" 
+                   value={loginName}
+                   onChange={(e) => { setLoginName(e.target.value); setError(''); }}
+                   className="w-full bg-gray-800 border border-gray-700 rounded-xl py-3 pl-10 text-white focus:ring-2 focus:ring-amber-500 outline-none transition-all placeholder-gray-600"
+                   placeholder="Seu nome"
+                   autoFocus
+                 />
+               </div>
              </div>
 
              <div>
+               <label className="block text-xs text-gray-500 uppercase font-bold mb-1 ml-1">Senha</label>
                <div className="relative">
                  <Lock className="absolute left-3 top-3.5 text-gray-500" size={18} />
                  <input 
                    type="password" 
-                   value={password}
-                   onChange={(e) => { setPassword(e.target.value); setError(''); }}
-                   className="w-full bg-gray-800 border border-gray-700 rounded-xl py-3.5 pl-10 text-white focus:ring-2 focus:ring-amber-500 outline-none transition-all placeholder-gray-600"
-                   placeholder="Sua senha"
-                   autoFocus
+                   value={loginPass}
+                   onChange={(e) => { setLoginPass(e.target.value); setError(''); }}
+                   className="w-full bg-gray-800 border border-gray-700 rounded-xl py-3 pl-10 text-white focus:ring-2 focus:ring-amber-500 outline-none transition-all placeholder-gray-600"
+                   placeholder="********"
                  />
                </div>
              </div>
              
              {error && (
-               <div className="text-red-400 text-xs text-center font-bold animate-shake bg-red-500/10 p-2 rounded-lg">
+               <div className="text-red-400 text-xs text-center font-bold animate-shake bg-red-500/10 p-2 rounded-lg border border-red-500/20">
                  {error}
                </div>
              )}
 
              <button 
                type="submit"
-               className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-amber-600/20 transition-all active:scale-95 uppercase tracking-wide text-sm flex items-center justify-center gap-2"
+               className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-amber-600/20 transition-all active:scale-95 uppercase tracking-wide text-sm flex items-center justify-center gap-2 mt-2"
              >
-               <CheckCircle2 size={18} /> Acessar
+               <CheckCircle2 size={18} /> Acessar Sistema
              </button>
-             
-             <p className="text-center text-[10px] text-gray-600 mt-4">Senha padrão de testes: <strong>123</strong></p>
+          </form>
+        ) : (
+          <form onSubmit={handleRegisterSubmit} className="animate-fade-in space-y-4">
+             <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <label className="block text-xs text-gray-500 uppercase font-bold mb-1 ml-1">Nome</label>
+                   <div className="relative">
+                     <User className="absolute left-3 top-3 text-gray-500" size={16} />
+                     <input 
+                       type="text" 
+                       value={regName}
+                       onChange={(e) => setRegName(e.target.value)}
+                       className="w-full bg-gray-800 border border-gray-700 rounded-xl py-2.5 pl-9 text-white text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                       placeholder="Nome"
+                       required
+                     />
+                   </div>
+                 </div>
+                 <div>
+                   <label className="block text-xs text-gray-500 uppercase font-bold mb-1 ml-1">Gênero</label>
+                   <div className="flex gap-2 h-[42px]">
+                        <button type="button" onClick={() => setRegGender('male')} className={`flex-1 rounded-lg text-xs font-bold border transition-colors ${regGender === 'male' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400'}`}>Masc</button>
+                        <button type="button" onClick={() => setRegGender('female')} className={`flex-1 rounded-lg text-xs font-bold border transition-colors ${regGender === 'female' ? 'bg-pink-600 border-pink-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400'}`}>Fem</button>
+                   </div>
+                 </div>
+             </div>
+
+             <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <label className="block text-xs text-gray-500 uppercase font-bold mb-1 ml-1">Senha</label>
+                   <div className="relative">
+                     <Lock className="absolute left-3 top-3 text-gray-500" size={16} />
+                     <input 
+                       type="password" 
+                       value={regPass}
+                       onChange={(e) => setRegPass(e.target.value)}
+                       className="w-full bg-gray-800 border border-gray-700 rounded-xl py-2.5 pl-9 text-white text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                       placeholder="****"
+                       required
+                     />
+                   </div>
+                 </div>
+                 <div>
+                   <label className="block text-xs text-gray-500 uppercase font-bold mb-1 ml-1">Confirmar</label>
+                   <div className="relative">
+                     <Lock className="absolute left-3 top-3 text-gray-500" size={16} />
+                     <input 
+                       type="password" 
+                       value={regPassConfirm}
+                       onChange={(e) => setRegPassConfirm(e.target.value)}
+                       className="w-full bg-gray-800 border border-gray-700 rounded-xl py-2.5 pl-9 text-white text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                       placeholder="****"
+                       required
+                     />
+                   </div>
+                 </div>
+             </div>
+
+             <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <label className="block text-xs text-gray-500 uppercase font-bold mb-1 ml-1">Peso (kg)</label>
+                   <div className="relative">
+                     <Scale className="absolute left-3 top-3 text-gray-500" size={16} />
+                     <input 
+                       type="number" 
+                       value={regWeight}
+                       onChange={(e) => setRegWeight(e.target.value)}
+                       className="w-full bg-gray-800 border border-gray-700 rounded-xl py-2.5 pl-9 text-white text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                       placeholder="0.0"
+                     />
+                   </div>
+                 </div>
+                 <div>
+                   <label className="block text-xs text-gray-500 uppercase font-bold mb-1 ml-1">Altura (cm)</label>
+                   <div className="relative">
+                     <Ruler className="absolute left-3 top-3 text-gray-500" size={16} />
+                     <input 
+                       type="number" 
+                       value={regHeight}
+                       onChange={(e) => setRegHeight(e.target.value)}
+                       className="w-full bg-gray-800 border border-gray-700 rounded-xl py-2.5 pl-9 text-white text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                       placeholder="0"
+                     />
+                   </div>
+                 </div>
+             </div>
+
+             <div>
+               <label className="block text-xs text-gray-500 uppercase font-bold mb-1 ml-1">Localização</label>
+               <div className="relative">
+                 <MapPin className="absolute left-3 top-3 text-gray-500" size={16} />
+                 <input 
+                   type="text" 
+                   value={regLocation}
+                   onChange={(e) => setRegLocation(e.target.value)}
+                   className="w-full bg-gray-800 border border-gray-700 rounded-xl py-2.5 pl-9 text-white text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                   placeholder="Ex: Rio de Janeiro, RJ"
+                 />
+               </div>
+             </div>
+
+             <div>
+               <label className="block text-xs text-gray-500 uppercase font-bold mb-1 ml-1">Bio do Atleta</label>
+               <div className="relative">
+                 <FileText className="absolute left-3 top-3 text-gray-500" size={16} />
+                 <textarea 
+                   value={regBio}
+                   onChange={(e) => setRegBio(e.target.value)}
+                   className="w-full bg-gray-800 border border-gray-700 rounded-xl py-2.5 pl-9 text-white text-sm focus:ring-2 focus:ring-amber-500 outline-none resize-none h-20"
+                   placeholder="Seus objetivos, experiência..."
+                 />
+               </div>
+             </div>
+
+             {error && (
+               <div className="text-red-400 text-xs text-center font-bold animate-shake bg-red-500/10 p-2 rounded-lg border border-red-500/20">
+                 {error}
+               </div>
+             )}
+
+             <button 
+               type="submit"
+               className="w-full bg-white hover:bg-gray-200 text-black font-bold py-3.5 rounded-xl shadow-lg transition-all active:scale-95 uppercase tracking-wide text-sm flex items-center justify-center gap-2 mt-2"
+             >
+               <UserPlus size={18} /> Criar Perfil
+             </button>
+             <p className="text-[10px] text-gray-500 text-center mt-2">
+                 Novos membros iniciam no plano <strong className="text-gray-300">Básico</strong>.
+             </p>
           </form>
         )}
       </div>
