@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Member, Season, RaceEvent, Story, SoundType, Activity } from '../types';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, ReferenceLine } from 'recharts';
 import { ActivityLogger } from './ActivityLogger';
 import { Sun, CloudRain, Wind, Target, Flag, TrendingUp, Footprints, X, Flame, Zap, Crown, Plus, Edit3, Check, ChevronRight, Timer, Medal, FileDown, Calendar, MapPin, FileText, Lock, FileSpreadsheet, Printer, Share2, Mountain, Gauge } from 'lucide-react';
 import { ACHIEVEMENTS_LIST } from './Achievements';
@@ -20,18 +20,29 @@ interface DashboardProps {
   playSound?: (type: SoundType) => void;
 }
 
+// Robust Pace Parser using Regex
 const paceToSeconds = (pace: string): number => {
+  if (!pace) return 0;
   try {
-    const cleanPace = pace.replace('"', '').replace("'", ":");
-    const [min, sec] = cleanPace.split(":").map(Number);
-    return (min * 60) + (sec || 0);
+    // Matches 5'30", 5:30, 5.30, 5,30
+    const match = pace.match(/(\d+)[.:,'"]+(\d+)/);
+    if (match) {
+        const min = parseInt(match[1], 10);
+        const sec = parseInt(match[2], 10);
+        return (min * 60) + sec;
+    }
+    // Fallback if it's just a number (minutes)
+    const floatVal = parseFloat(pace);
+    if (!isNaN(floatVal)) return floatVal * 60;
+    
+    return 0;
   } catch (e) {
     return 0;
   }
 };
 
 const formatPaceFromSeconds = (totalSeconds: number): string => {
-    if (totalSeconds === 0) return "0'00\"";
+    if (!totalSeconds || isNaN(totalSeconds) || totalSeconds === 0) return "0'00\"";
     const min = Math.floor(totalSeconds / 60);
     const sec = Math.round(totalSeconds % 60);
     return `${min}'${sec.toString().padStart(2, '0')}"`;
@@ -83,6 +94,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const avgPace = formatPaceFromSeconds(avgPaceSeconds);
 
   const rankInfo = getNextRankInfo(currentUser.totalDistance);
+  const distanceToNextRank = Math.max(0, rankInfo.nextThreshold - currentUser.totalDistance);
   const progressToNextRank = Math.min(100, Math.max(0, ((currentUser.totalDistance - rankInfo.prevThreshold) / (rankInfo.nextThreshold - rankInfo.prevThreshold)) * 100));
 
   const recentAchievements = currentUser.achievements.slice(-3).map(id => 
@@ -90,10 +102,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
   ).filter(Boolean);
 
   const WEEKLY_GOAL = 30;
-  const currentWeeklyKm = 18.5; // Mock
+  // Calculate actual weekly km
+  const startOfWeek = new Date();
+  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+  startOfWeek.setHours(0,0,0,0);
+  
+  const currentWeeklyKm = currentUser.activities
+    .filter(a => new Date(a.date) >= startOfWeek)
+    .reduce((acc, curr) => acc + curr.distanceKm, 0);
+
   const ringData = [
       { name: 'Completed', value: currentWeeklyKm, color: '#f59e0b' },
-      { name: 'Remaining', value: WEEKLY_GOAL - currentWeeklyKm, color: '#1f2937' } 
+      { name: 'Remaining', value: Math.max(0, WEEKLY_GOAL - currentWeeklyKm), color: '#1f2937' } 
   ];
 
   const today = new Date();
@@ -123,13 +143,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     if(playSound) playSound('success');
 
-    const paceNum = newActivityData.durationMin / newActivityData.distanceKm;
-    const min = Math.floor(paceNum);
-    const sec = Math.round((paceNum % 1) * 60);
+    // Safe Pace Calculation
+    let paceString = "0'00\"";
+    if (newActivityData.distanceKm > 0 && newActivityData.durationMin > 0) {
+        const paceVal = newActivityData.durationMin / newActivityData.distanceKm;
+        const min = Math.floor(paceVal);
+        const sec = Math.round((paceVal - min) * 60);
+        paceString = `${min}'${sec.toString().padStart(2, '0')}"`;
+    }
+
     const newActivity = {
       id: Date.now().toString(),
       ...newActivityData,
-      pace: `${min}'${sec.toString().padStart(2, '0')}"`
+      pace: paceString
     };
     
     let xpEarned = Math.round(newActivity.distanceKm * 10);
@@ -176,7 +202,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             ${exportType === 'dossier' ? `
             <td class="py-3 px-4">
                 <div class="h-2 bg-gray-200 rounded-full overflow-hidden w-24">
-                    <div class="h-full bg-amber-500" style="width: ${Math.min(100, (act.distanceKm / 10) * 100)}%"></div>
+                    <div class="h-full bg-amber-50" style="width: ${Math.min(100, (act.distanceKm / 10) * 100)}%"></div>
                 </div>
             </td>` : ''}
             <td class="py-3 px-4 text-xs text-gray-500 italic truncate max-w-[200px]">${act.notes || '-'}</td>
@@ -305,7 +331,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `missões_${currentUser.name.replace(/\s+/g, '_')}.csv`;
+      link.download = `missoes_${currentUser.name.replace(/\s+/g, '_')}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -313,7 +339,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       if(playSound) playSound('success');
   };
 
-  // Prepare Chart Data
+  // Prepare Chart Data (Volume)
   const chartData = currentUser.activities
     .slice()
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
@@ -328,6 +354,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const chartTotalKm = chartData.reduce((acc, curr) => acc + curr.km, 0);
 
+  // Prepare Pace Evolution Data (Last 5 Runs) - Guard against NaN
+  const paceEvolutionData = currentUser.activities
+    .filter(a => paceToSeconds(a.pace) > 0)
+    .slice()
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(-5)
+    .map(a => ({
+        date: new Date(a.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+        paceSeconds: paceToSeconds(a.pace),
+        paceLabel: a.pace,
+        km: a.distanceKm
+    }));
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         return (
@@ -336,6 +375,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <p className="text-amber-400 font-bold text-lg">{payload[0].value} km</p>
                 <p className="text-gray-400">Pace: {payload[0].payload.pace}</p>
                 <p className="text-gray-400">Tempo: {payload[0].payload.duration} min</p>
+            </div>
+        );
+    }
+    return null;
+  };
+
+  const PaceTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-gray-900 text-white p-3 rounded-xl shadow-xl border border-gray-700 text-xs">
+                <p className="font-bold mb-1">{label}</p>
+                <p className="text-cyan-400 font-bold text-lg">{payload[0].payload.paceLabel}/km</p>
+                <p className="text-gray-400">Distância: {payload[0].payload.km} km</p>
             </div>
         );
     }
@@ -353,6 +405,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   time: `${selectedActivity.durationMin} min`,
                   pace: `${selectedActivity.pace}/km`
               }}
+              route={selectedActivity.route}
           />
       )}
       
@@ -376,7 +429,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           </div>
                           <div>
                               <div className="font-bold text-gray-900 dark:text-white text-lg leading-none">{Math.round(weather.temperature_2m)}°C</div>
-                              <div className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mt-1">Rio de Janeiro</div>
+                              <div className="text-xs text-gray-400 uppercase tracking-widest font-bold mt-1">Rio de Janeiro</div>
                           </div>
                       </div>
                   )}
@@ -385,8 +438,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
           {/* --- VISUAL STATS GRID --- */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* ... Stats Cards (unchanged for now) ... */}
-              {/* ... (Rank, Pace, Achievements) ... */}
+              {/* Rank Card */}
               <div 
                 onClick={() => onNavigate && onNavigate('leaderboard')}
                 className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer hover:border-amber-500/50 transition-all group relative overflow-hidden"
@@ -410,7 +462,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <div className="space-y-1">
                       <div className="flex justify-between text-[10px] font-bold uppercase text-gray-400">
                           <span>Progresso</span>
-                          <span>Próx: {rankInfo.nextRank}</span>
+                          <span>Faltam {distanceToNextRank.toFixed(0)} km</span>
                       </div>
                       <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                           <div className="h-full bg-amber-500 rounded-full transition-all duration-1000" style={{ width: `${progressToNextRank}%` }}></div>
@@ -418,6 +470,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
               </div>
 
+              {/* Pace Card */}
               <div 
                 onClick={() => onNavigate && onNavigate('activity')}
                 className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer hover:border-blue-500/50 transition-all group relative overflow-hidden"
@@ -443,6 +496,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
               </div>
 
+              {/* Achievements Card */}
               <div 
                 onClick={() => onNavigate && onNavigate('achievements')}
                 className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer hover:border-purple-500/50 transition-all group relative overflow-hidden"
@@ -612,7 +666,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           <span className="text-2xl font-black text-gray-900 dark:text-white">{Math.round((currentWeeklyKm/WEEKLY_GOAL)*100)}%</span>
                       </div>
                   </div>
-                  <p className="text-sm font-bold text-gray-900 dark:text-white mt-2">{currentWeeklyKm} / {WEEKLY_GOAL} km</p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white mt-2">{currentWeeklyKm.toFixed(1)} / {WEEKLY_GOAL} km</p>
               </div>
 
               {/* 3. CHART: EVOLUÇÃO DE VOLUME */}
@@ -666,6 +720,57 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       ) : (
                           <div className="h-full flex flex-col items-center justify-center text-gray-400">
                               <p className="text-sm">Sem dados suficientes para o gráfico.</p>
+                          </div>
+                      )}
+                  </div>
+              </div>
+
+              {/* 4. CHART: EVOLUÇÃO DE PACE (LINE) */}
+              <div className="md:col-span-3 bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-200 dark:border-gray-700 h-[400px] flex flex-col">
+                  <div className="mb-6">
+                      <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2 text-lg">
+                          <Timer size={20} className="text-cyan-500" />
+                          Evolução de Pace (Últimas 5 Corridas)
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Quanto mais baixo o ponto no gráfico, mais rápido você correu.
+                      </p>
+                  </div>
+
+                  <div className="flex-1 w-full h-full">
+                      {paceEvolutionData.length > 1 ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={paceEvolutionData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
+                                  <XAxis 
+                                      dataKey="date" 
+                                      tick={{ fill: '#9CA3AF', fontSize: 10 }} 
+                                      tickLine={false} 
+                                      axisLine={false} 
+                                  />
+                                  <YAxis 
+                                      tickFormatter={(val) => formatPaceFromSeconds(val)} 
+                                      domain={['dataMin - 30', 'dataMax + 30']} 
+                                      tick={{ fill: '#9CA3AF', fontSize: 10 }} 
+                                      tickLine={false} 
+                                      axisLine={false} 
+                                      reversed={false}
+                                  />
+                                  <Tooltip content={<PaceTooltip />} cursor={{ stroke: '#06b6d4', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                  <Line 
+                                      type="monotone" 
+                                      dataKey="paceSeconds" 
+                                      stroke="#06b6d4" 
+                                      strokeWidth={3} 
+                                      dot={{ r: 4, fill: '#06b6d4', strokeWidth: 2, stroke: '#fff' }} 
+                                      activeDot={{ r: 6, fill: '#fff', stroke: '#06b6d4' }}
+                                      animationDuration={1500}
+                                  />
+                              </LineChart>
+                          </ResponsiveContainer>
+                      ) : (
+                          <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                              <p className="text-sm">Corra pelo menos 2 vezes para gerar a curva de evolução.</p>
                           </div>
                       )}
                   </div>
@@ -895,6 +1000,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   time: `${selectedActivity.durationMin} min`,
                   pace: `${selectedActivity.pace}/km`
               }}
+              route={selectedActivity.route}
           />
       )}
 

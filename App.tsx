@@ -497,8 +497,10 @@ const App: React.FC = () => {
 
   // === ACHIEVEMENT LOGIC HELPERS ===
   const calculateStreak = (activities: Activity[]) => {
-      if (activities.length === 0) return 0;
-      const dates = Array.from(new Set(activities.map(a => a.date)))
+      if (!activities || activities.length === 0) return 0;
+      
+      // Extract unique days (YYYY-MM-DD)
+      const dates = Array.from(new Set(activities.map(a => a.date.split('T')[0])))
         .sort((a,b) => new Date(b).getTime() - new Date(a).getTime());
       
       let streak = 0;
@@ -511,6 +513,7 @@ const App: React.FC = () => {
       lastRun.setHours(0,0,0,0);
       
       const diffSinceLast = (today.getTime() - lastRun.getTime()) / (1000 * 3600 * 24);
+      // If more than 1 day passed since last run, streak is broken (or just started today/yesterday)
       if (diffSinceLast > 1) return 0; 
 
       streak = 1;
@@ -531,10 +534,18 @@ const App: React.FC = () => {
   };
 
   const getPaceInSeconds = (paceStr: string) => {
+      if (!paceStr) return 99999;
       try {
-        const clean = paceStr.replace('"', '').replace("'", ':');
-        const [min, sec] = clean.split(':').map(Number);
-        return (min * 60) + (sec || 0);
+        // Handle multiple formats: 5'30", 5:30, 5.5, etc.
+        const clean = paceStr.replace(/[^\d:.]/g, '').replace(':', '.'); 
+        const parts = paceStr.split(/[:']/);
+        
+        if (parts.length === 2) {
+            const min = parseInt(parts[0], 10);
+            const sec = parseInt(parts[1].replace('"', ''), 10);
+            return (min * 60) + (sec || 0);
+        }
+        return 99999;
       } catch (e) {
         return 99999;
       }
@@ -542,9 +553,10 @@ const App: React.FC = () => {
 
   const handleUpdateUser = async (updatedMember: Member) => {
     // Check Achievements
-    const newAchievements = [...updatedMember.achievements];
+    const newAchievements = [...(updatedMember.achievements || [])];
     const currentStreak = calculateStreak(updatedMember.activities);
-    const lastActivity = updatedMember.activities[updatedMember.activities.length - 1];
+    const activities = updatedMember.activities || [];
+    const lastActivity = activities.length > 0 ? activities[activities.length - 1] : null;
 
     ACHIEVEMENTS_LIST.forEach(ach => {
         if (!newAchievements.includes(ach.id)) {
@@ -638,7 +650,7 @@ const App: React.FC = () => {
       let xpEarned = Math.round(newActivity.distanceKm * 10);
       if (newActivity.distanceKm >= 5) xpEarned += 50;
       
-      let updatedShoes = [...currentUser.shoes];
+      let updatedShoes = [...(currentUser.shoes || [])];
       if (updatedShoes.length > 0) {
           updatedShoes[0].currentKm += newActivity.distanceKm;
       }
@@ -648,7 +660,7 @@ const App: React.FC = () => {
           totalDistance: updatedDistance,
           rank: newRank,
           seasonScore: currentUser.seasonScore + xpEarned,
-          activities: [...currentUser.activities, newActivity],
+          activities: [...(currentUser.activities || []), newActivity],
           shoes: updatedShoes
       };
 

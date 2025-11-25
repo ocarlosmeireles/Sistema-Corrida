@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Activity } from '../types';
-import { PlusCircle, Watch, MapPin, Calendar } from 'lucide-react';
+import { PlusCircle, Watch, MapPin, Calendar, Calculator } from 'lucide-react';
 
 interface ActivityLoggerProps {
   onAddActivity: (activity: Omit<Activity, 'id' | 'pace'>) => void;
@@ -13,6 +13,21 @@ export const ActivityLogger: React.FC<ActivityLoggerProps> = ({ onAddActivity })
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [feeling, setFeeling] = useState<Activity['feeling']>('good');
   const [notes, setNotes] = useState('');
+  const [estimatedPace, setEstimatedPace] = useState<string>("0'00\"/km");
+
+  // Auto-calculate pace preview
+  useEffect(() => {
+      const d = parseFloat(distance);
+      const t = parseFloat(duration);
+      if (d > 0 && t > 0) {
+          const paceVal = t / d;
+          const min = Math.floor(paceVal);
+          const sec = Math.round((paceVal - min) * 60);
+          setEstimatedPace(`${min}'${sec.toString().padStart(2, '0')}"/km`);
+      } else {
+          setEstimatedPace("0'00\"/km");
+      }
+  }, [distance, duration]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,7 +102,17 @@ export const ActivityLogger: React.FC<ActivityLoggerProps> = ({ onAddActivity })
             </div>
           </div>
 
-          <div>
+          <div className="flex flex-col justify-center bg-amber-50 dark:bg-amber-500/10 rounded-xl border border-amber-200 dark:border-amber-500/20 p-2 text-center">
+              <label className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1">
+                  <Calculator size={12} /> Pace Estimado
+              </label>
+              <div className="text-2xl font-black text-gray-900 dark:text-white font-mono tracking-tighter">
+                  {estimatedPace}
+              </div>
+          </div>
+        </div>
+
+        <div>
             <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Sensação</label>
             <div className="grid grid-cols-4 gap-2">
               {(['great', 'good', 'hard', 'pain'] as const).map((f) => (
@@ -105,7 +130,6 @@ export const ActivityLogger: React.FC<ActivityLoggerProps> = ({ onAddActivity })
                 </button>
               ))}
             </div>
-          </div>
         </div>
 
         <div>

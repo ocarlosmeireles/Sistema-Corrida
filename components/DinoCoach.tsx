@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Member, PlanType } from '../types';
 import { getWindCoachingTip, getTrainingAnalysis } from '../services/geminiService';
-import { Bot, Sparkles, ChevronRight, Wind, Zap, Lock, Crown } from 'lucide-react';
+import { Bot, Sparkles, ChevronRight, Wind, Zap, Lock, Crown, BarChart2 } from 'lucide-react';
 import { ProGate } from './ProGate';
 
 interface DinoCoachProps {
@@ -78,22 +78,22 @@ export const DinoCoach: React.FC<DinoCoachProps> = ({ member, userPlan = 'basic'
       <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 border border-gray-200 dark:border-gray-700 shadow-lg relative overflow-hidden">
         <div className="flex items-center justify-between mb-6 relative z-10">
           <h3 className="font-bold text-xl text-gray-900 dark:text-white flex items-center gap-2">
-            <Sparkles size={20} className="text-amber-500" />
-            Análise de Desempenho
+            <BarChart2 size={20} className="text-amber-500" />
+            Dossiê de Performance
           </h3>
         </div>
 
         {!analysis ? (
           <div className="text-center py-8 relative z-10">
             <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-md mx-auto leading-relaxed">
-              Permita que a IA analise seus treinos no Aterro, Lagoa e Leblon para traçar um perfil aerodinâmico da sua evolução.
+              Permita que a IA analise <strong>todo o seu histórico</strong> de corridas para identificar padrões de pace, consistência e evolução em ladeiras.
             </p>
             <button 
               onClick={handleDeepAnalysis}
               disabled={loading || userPlan === 'basic'}
               className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-amber-500 dark:hover:bg-amber-400 hover:text-white dark:hover:text-gray-900 px-8 py-4 rounded-2xl font-bold transition-all flex items-center justify-center mx-auto disabled:opacity-50 shadow-xl w-full md:w-auto"
             >
-              {loading ? 'Lendo correntes de ar...' : 'Solicitar Análise Completa'}
+              {loading ? 'Processando histórico completo...' : 'Gerar Dossiê Completo'}
               {!loading && <ChevronRight size={18} className="ml-2" />}
             </button>
           </div>
@@ -101,6 +101,14 @@ export const DinoCoach: React.FC<DinoCoachProps> = ({ member, userPlan = 'basic'
           <div className="prose prose-sm max-w-none relative z-10">
             <div className="whitespace-pre-line text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 p-6 rounded-2xl border border-gray-200 dark:border-gray-700/50">
               {analysis}
+            </div>
+            <div className="mt-6 text-center">
+                <button 
+                    onClick={() => setAnalysis(null)}
+                    className="text-xs text-gray-500 hover:text-amber-500 underline"
+                >
+                    Limpar Análise
+                </button>
             </div>
           </div>
         )}
@@ -112,7 +120,7 @@ export const DinoCoach: React.FC<DinoCoachProps> = ({ member, userPlan = 'basic'
       return (
           <ProGate 
             featureName="Coach Eólico (IA)"
-            description="Liberte o poder da inteligência artificial para analisar seus dados aerodinâmicos, receber conselhos diários e feedback de pós-treino."
+            description="Liberte o poder da inteligência artificial para analisar seu histórico completo, receber conselhos diários e feedback de pós-treino."
             onUpgradeRequest={() => alert("Solicite upgrade ao administrador na aba Equipe.")}
           >
               {Content}

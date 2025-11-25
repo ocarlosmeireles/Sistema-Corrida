@@ -1,7 +1,8 @@
 
-import React, { useState, useRef } from 'react';
-import { Wind, Share2, X, Image as ImageIcon, Download, Loader2, LayoutTemplate, Zap, Type, Circle, Sun, Grid, Film, Eye, EyeOff } from 'lucide-react';
+import React, { useState, useRef, useMemo } from 'react';
+import { Wind, Share2, X, Image as ImageIcon, Download, Loader2, LayoutTemplate, Zap, Type, Circle, Sun, Grid, Film, Eye, EyeOff, Map, Compass } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import { RoutePoint } from '../types';
 
 interface SocialShareModalProps {
   isOpen: boolean;
@@ -11,14 +12,15 @@ interface SocialShareModalProps {
     time: string;
     pace: string;
   };
+  route?: RoutePoint[];
 }
 
-type TemplateType = 'classic' | 'minimal' | 'cyber' | 'poster' | 'sunset' | 'data' | 'vhs';
+type TemplateType = 'classic' | 'minimal' | 'cyber' | 'poster' | 'sunset' | 'data' | 'vhs' | 'neon_map' | 'blueprint';
 
-export const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, data }) => {
+export const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, data, route }) => {
   const [shareImage, setShareImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [template, setTemplate] = useState<TemplateType>('classic');
+  const [template, setTemplate] = useState<TemplateType>(route && route.length > 0 ? 'neon_map' : 'classic');
   
   // Data Toggles
   const [showDistance, setShowDistance] = useState(true);
@@ -28,6 +30,40 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onCl
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  // --- ROUTE RENDERING LOGIC ---
+  const routePath = useMemo(() => {
+    if (!route || route.length < 2) return null;
+
+    // 1. Find bounding box
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+    route.forEach(p => {
+        if (p.lat < minLat) minLat = p.lat;
+        if (p.lat > maxLat) maxLat = p.lat;
+        if (p.lng < minLng) minLng = p.lng;
+        if (p.lng > maxLng) maxLng = p.lng;
+    });
+
+    // 2. Add padding to maintain aspect ratio and prevent cutting
+    const latRange = maxLat - minLat;
+    const lngRange = maxLng - minLng;
+    const padding = Math.max(latRange, lngRange) * 0.1; // 10% padding
+
+    minLat -= padding;
+    maxLat += padding;
+    minLng -= padding;
+    maxLng += padding;
+
+    // 3. Convert to SVG coordinate string (0-100 space)
+    const points = route.map(p => {
+        // Map lng to x (0-100), lat to y (100-0 because SVG y goes down)
+        const x = ((p.lng - minLng) / (maxLng - minLng)) * 100;
+        const y = 100 - ((p.lat - minLat) / (maxLat - minLat)) * 100;
+        return `${x},${y}`;
+    }).join(' ');
+
+    return { points, start: points.split(' ')[0], end: points.split(' ')[points.split(' ').length - 1] };
+  }, [route]);
 
   if (!isOpen) return null;
 
@@ -46,19 +82,21 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onCl
       if (!cardRef.current) return null;
       setIsGenerating(true);
       try {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Wait for fonts and layout
+          await new Promise(resolve => setTimeout(resolve, 200));
           
           const canvas = await html2canvas(cardRef.current, {
               useCORS: true,
-              scale: 2, 
+              scale: 3, // High Res
               backgroundColor: null,
-              logging: false
+              logging: false,
+              allowTaint: true,
           });
           return new Promise((resolve) => {
               canvas.toBlob((blob) => {
                   setIsGenerating(false);
                   resolve(blob);
-              }, 'image/png');
+              }, 'image/png', 1.0);
           });
       } catch (error) {
           console.error("Error creating image", error);
@@ -111,6 +149,132 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onCl
       const today = new Date().toLocaleDateString('pt-BR');
 
       switch (template) {
+          case 'neon_map':
+              return (
+                  <div className="absolute inset-0 flex flex-col z-10 bg-gray-950 overflow-hidden">
+                      {/* Dynamic Route Background */}
+                      <div className="absolute inset-0 opacity-30 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/20 rounded-full blur-[80px]"></div>
+                      <div className="absolute bottom-0 left-0 w-64 h-64 bg-orange-600/20 rounded-full blur-[80px]"></div>
+
+                      {/* THE MAP SVG */}
+                      <div className="flex-1 relative flex items-center justify-center p-8">
+                          {routePath ? (
+                              <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" className="w-full h-full filter drop-shadow-[0_0_8px_rgba(245,158,11,0.8)]">
+                                  <polyline 
+                                      points={routePath.points} 
+                                      fill="none" 
+                                      stroke="url(#gradient)" 
+                                      strokeWidth="3" 
+                                      strokeLinecap="round" 
+                                      strokeLinejoin="round"
+                                  />
+                                  <defs>
+                                      <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                          <stop offset="0%" stopColor="#fbbf24" />
+                                          <stop offset="100%" stopColor="#f97316" />
+                                      </linearGradient>
+                                  </defs>
+                                  {/* Start/End Markers */}
+                                  <circle cx={routePath.start?.split(',')[0]} cy={routePath.start?.split(',')[1]} r="1.5" fill="white" />
+                                  <circle cx={routePath.end?.split(',')[0]} cy={routePath.end?.split(',')[1]} r="1.5" fill="#ef4444" />
+                              </svg>
+                          ) : (
+                              <div className="text-gray-600 text-xs uppercase tracking-widest">Sem dados de GPS</div>
+                          )}
+                      </div>
+
+                      {/* Stats Overlay */}
+                      <div className="p-6 bg-black/40 backdrop-blur-md border-t border-white/10 grid grid-cols-3 gap-4">
+                          {showDistance && (
+                              <div>
+                                  <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">Distância</p>
+                                  <p className="text-3xl font-black text-white italic">{data.distance.split(' ')[0]} <span className="text-sm not-italic text-amber-500">km</span></p>
+                              </div>
+                          )}
+                          {showTime && (
+                              <div>
+                                  <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">Tempo</p>
+                                  <p className="text-3xl font-black text-white italic">{data.time}</p>
+                              </div>
+                          )}
+                          {showPace && (
+                              <div>
+                                  <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">Pace</p>
+                                  <p className="text-3xl font-black text-white italic">{data.pace}</p>
+                              </div>
+                          )}
+                      </div>
+                      <div className="absolute top-6 left-6">
+                          <h3 className="text-white font-black text-xl italic tracking-tighter flex items-center gap-2">
+                              <Wind size={20} className="text-amber-500" /> FILHOS DO VENTO
+                          </h3>
+                          {showDate && <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest ml-7">{today}</p>}
+                      </div>
+                  </div>
+              );
+
+          case 'blueprint':
+                return (
+                    <div className="absolute inset-0 flex flex-col z-10 bg-[#001529] overflow-hidden text-blue-100">
+                        {/* Grid Background */}
+                        <div className="absolute inset-0" style={{backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '20px 20px'}}></div>
+                        
+                        <div className="relative z-10 p-6 border-b border-blue-800/50 flex justify-between items-center">
+                            <div>
+                                <h2 className="text-2xl font-mono font-bold tracking-tighter text-blue-400">REGISTRO DE VOO</h2>
+                                {showDate && <p className="text-xs font-mono text-blue-500/80">{today} • RIO DE JANEIRO</p>}
+                            </div>
+                            <div className="border border-blue-500/50 rounded px-2 py-1 text-[10px] font-mono text-blue-300">
+                                ID: {Math.floor(Math.random()*9000)+1000}
+                            </div>
+                        </div>
+
+                        <div className="flex-1 relative flex items-center justify-center p-12">
+                            {routePath ? (
+                                <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" className="w-full h-full filter drop-shadow-[0_0_5px_rgba(96,165,250,0.6)]">
+                                    <polyline 
+                                        points={routePath.points} 
+                                        fill="none" 
+                                        stroke="#60a5fa" 
+                                        strokeWidth="1.5" 
+                                        strokeLinecap="round" 
+                                        strokeLinejoin="round"
+                                        strokeDasharray="4 2"
+                                    />
+                                    <circle cx={routePath.start?.split(',')[0]} cy={routePath.start?.split(',')[1]} r="2" fill="#fff" />
+                                    <circle cx={routePath.end?.split(',')[0]} cy={routePath.end?.split(',')[1]} r="2" fill="#ef4444" />
+                                </svg>
+                            ) : (
+                                <div className="border-2 border-dashed border-blue-800 rounded-xl p-8">
+                                    <Map size={48} className="text-blue-900" />
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-6 grid grid-cols-3 gap-4 font-mono border-t border-blue-800/50 bg-[#000f1f]/50">
+                            {showDistance && (
+                                <div className="border-r border-blue-800/50">
+                                    <span className="text-[8px] text-blue-500 uppercase block">Distância Total</span>
+                                    <span className="text-2xl font-bold text-white">{data.distance}</span>
+                                </div>
+                            )}
+                            {showTime && (
+                                <div className="border-r border-blue-800/50 pl-4">
+                                    <span className="text-[8px] text-blue-500 uppercase block">Duração</span>
+                                    <span className="text-2xl font-bold text-white">{data.time}</span>
+                                </div>
+                            )}
+                            {showPace && (
+                                <div className="pl-4">
+                                    <span className="text-[8px] text-blue-500 uppercase block">Pace Médio</span>
+                                    <span className="text-2xl font-bold text-white">{data.pace}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+
           case 'minimal':
               return (
                   <div className="absolute inset-0 p-8 flex flex-col justify-between z-10 text-black">
@@ -377,6 +541,24 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onCl
                   {/* TEMPLATE SELECTOR */}
                   <div className="overflow-x-auto pb-2 no-scrollbar">
                       <div className="flex gap-2 min-w-max">
+                          {route && route.length > 0 && (
+                              <>
+                                <button 
+                                    onClick={() => setTemplate('neon_map')} 
+                                    className={`px-3 py-2 rounded-xl flex flex-col items-center gap-1 transition-all border ${template === 'neon_map' ? 'bg-amber-500/20 border-amber-500 text-amber-500' : 'bg-transparent border-transparent hover:bg-gray-800 text-gray-500'}`}
+                                >
+                                    <Map size={18} />
+                                    <span className="text-[8px] font-bold uppercase">Neon Track</span>
+                                </button>
+                                <button 
+                                    onClick={() => setTemplate('blueprint')} 
+                                    className={`px-3 py-2 rounded-xl flex flex-col items-center gap-1 transition-all border ${template === 'blueprint' ? 'bg-blue-500/20 border-blue-500 text-blue-500' : 'bg-transparent border-transparent hover:bg-gray-800 text-gray-500'}`}
+                                >
+                                    <Compass size={18} />
+                                    <span className="text-[8px] font-bold uppercase">Tech Map</span>
+                                </button>
+                              </>
+                          )}
                           {[
                               { id: 'classic', label: 'Classic', icon: LayoutTemplate, color: 'text-amber-500' },
                               { id: 'minimal', label: 'Minimal', icon: Circle, color: 'text-white' },
@@ -401,11 +583,11 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onCl
                   {/* CAPTURE AREA */}
                   <div ref={cardRef} className="relative w-full aspect-[4/5] bg-black rounded-2xl overflow-hidden shadow-lg group select-none transition-all duration-500">
                       {/* Background Image */}
-                      {shareImage ? (
+                      {shareImage && template !== 'neon_map' && template !== 'blueprint' ? (
                           <img src={shareImage} className="absolute inset-0 w-full h-full object-cover" alt="Background" />
                       ) : (
                           <div className={`absolute inset-0 bg-gray-900 ${template === 'minimal' ? 'bg-gray-200' : template === 'sunset' ? 'bg-gradient-to-b from-orange-600 to-purple-900' : "bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"}`}>
-                              {template !== 'minimal' && template !== 'sunset' && <div className="absolute inset-0 bg-gradient-to-br from-gray-800 via-black to-gray-900 opacity-90"></div>}
+                              {template !== 'minimal' && template !== 'sunset' && template !== 'neon_map' && template !== 'blueprint' && <div className="absolute inset-0 bg-gradient-to-br from-gray-800 via-black to-gray-900 opacity-90"></div>}
                           </div>
                       )}
                       
@@ -433,28 +615,32 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onCl
 
                   {/* Controls */}
                   <div className="space-y-3">
-                      <div className="flex gap-2">
-                          <button 
-                              onClick={() => fileInputRef.current?.click()}
-                              className="flex-1 bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-700"
-                          >
-                              <ImageIcon size={16} /> Escolher Foto
-                          </button>
-                          <button 
-                              onClick={() => setShareImage(null)}
-                              className="px-3 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-xl transition-colors border border-gray-700"
-                              title="Remover Foto"
-                          >
-                              <X size={16} />
-                          </button>
-                      </div>
-                      <input 
-                          type="file" 
-                          ref={fileInputRef} 
-                          className="hidden" 
-                          accept="image/*" 
-                          onChange={handleImageUpload} 
-                      />
+                      {template !== 'neon_map' && template !== 'blueprint' && (
+                          <>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="flex-1 bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-700"
+                                >
+                                    <ImageIcon size={16} /> Escolher Foto
+                                </button>
+                                <button 
+                                    onClick={() => setShareImage(null)}
+                                    className="px-3 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-xl transition-colors border border-gray-700"
+                                    title="Remover Foto"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+                            <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                className="hidden" 
+                                accept="image/*" 
+                                onChange={handleImageUpload} 
+                            />
+                          </>
+                      )}
                       
                       <button 
                           onClick={handleShare}

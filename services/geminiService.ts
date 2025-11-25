@@ -51,20 +51,48 @@ export const getTrainingAnalysis = async (activities: Activity[]): Promise<strin
 
     if (activities.length === 0) return "Ainda não sinto o deslocamento de ar dos seus treinos. Corra para gerar dados!";
 
-    const historyStr = activities.slice(-5).map(a => 
-        `- Data: ${a.date}, Dist: ${a.distanceKm}km, Tempo: ${a.durationMin}min, Pace: ${a.pace}, Sensação: ${a.feeling}`
+    // Pré-cálculo de métricas totais para ajudar a IA
+    const totalRuns = activities.length;
+    const totalElevation = activities.reduce((acc, curr) => acc + (curr.elevationGain || 0), 0);
+    const totalDist = activities.reduce((acc, curr) => acc + curr.distanceKm, 0);
+    
+    // Formatar histórico completo (sem slice)
+    // Ordenar por data (antigo -> novo) para análise de evolução
+    const sortedActivities = [...activities].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    const historyStr = sortedActivities.map(a => 
+        `- Data: ${a.date} | Dist: ${a.distanceKm}km | Tempo: ${a.durationMin}min | Pace: ${a.pace} | Elev: ${a.elevationGain || 0}m | Feeling: ${a.feeling}`
     ).join('\n');
 
     const prompt = `
-      Atue como o "Coach Eólico" da equipe Filhos do Vento. Analise o histórico recente deste corredor nas pistas do Rio de Janeiro:
+      Atue como o "Coach Eólico" da equipe Filhos do Vento. Realize uma análise técnica profunda do histórico COMPLETO deste corredor.
+      
+      Métricas Gerais Pré-calculadas:
+      - Total de Treinos: ${totalRuns}
+      - Distância Total Analisada: ${totalDist.toFixed(1)} km
+      - Ganho de Elevação Acumulado: ${totalElevation} m
+
+      Log de Atividades (Cronológico):
       ${historyStr}
 
-      Identifique tendências aerodinâmicas:
-      1. O atleta está ganhando consistência ou perdendo força contra o vento?
-      2. O pace está estável como uma brisa ou oscilando como uma tempestade?
-      3. Baseado no sentimento (feeling), ele está pronto para subir na Escala dos Ventos (Próximo Rank)?
+      Sua tarefa é gerar um relatório estruturado em Markdown abordando os seguintes pilares:
 
-      Forneça um feedback estruturado em Markdown, curto e direto. Use terminologia de corrida e metáforas eólicas pesadas.
+      1. **Consistência Aerodinâmica (Pace):**
+         - O pace médio está evoluindo (ficando mais rápido) ou estagnado?
+         - Existe muita variação (instabilidade) ou o atleta mantém um "ritmo de cruzeiro" sólido?
+
+      2. **Domínio do Terreno (Elevação):**
+         - O atleta tem enfrentado subidas (ganho de elevação)?
+         - Com base nos dados de elevação, sugira se ele precisa de mais treinos de força/ladeira (ex: Vista Chinesa).
+
+      3. **Volume & Frequência:**
+         - Aumentou a distância recentemente ou está diminuindo?
+         - O padrão de "feeling" indica risco de burnout ou motivação alta?
+
+      4. **Veredito do Vento:**
+         - Uma conclusão final motivadora usando metáforas de vento (ex: "Você está se tornando um Furacão", "Sua base é sólida como uma calmaria").
+
+      Seja direto, técnico, mas inspirador. Use emojis para destacar pontos chave.
     `;
 
     try {
@@ -74,7 +102,7 @@ export const getTrainingAnalysis = async (activities: Activity[]): Promise<strin
         });
         return response.text || "Análise momentaneamente indisponível devido a turbulência nos dados.";
     } catch (error) {
-        return "Erro ao processar a análise temporal.";
+        return "Erro ao processar a análise temporal completa.";
     }
 }
 

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { Activity, RoutePoint, Notification, Member, WorkoutMode, SoundType } from '../types';
-import { Play, Pause, Square, Flag, CheckCircle, Zap, Wind, Mountain, Footprints, Cloud, Tornado, Lock, Unlock, Crosshair, Mic, Target, Award, Share2, Volume2, VolumeX, X, Image as ImageIcon, Download, Loader2, Music, ChevronUp, ChevronDown, Flame, Activity as ActivityIcon, Gauge, Feather } from 'lucide-react';
+import { Play, Pause, Square, Flag, CheckCircle, Zap, Wind, Mountain, Footprints, Cloud, Tornado, Lock, Unlock, Crosshair, Mic, Target, Award, Share2, Volume2, VolumeX, X, Image as ImageIcon, Download, Loader2, Music, ChevronUp, ChevronDown, Flame, Activity as ActivityIcon, Gauge, Feather, Signal } from 'lucide-react';
 import * as L from 'leaflet';
 import { SocialShareModal } from './SocialShareModal';
 
@@ -257,11 +257,54 @@ const VoiceVisualizer = ({ isActive }: { isActive: boolean }) => {
     );
 };
 
-const LongPressButton = ({ onComplete, children, className }: { onComplete: () => void, children?: React.ReactNode, className?: string }) => {
+const GpsStatus = ({ accuracy }: { accuracy: number | null }) => {
+    // Accuracy is in meters. Lower is better.
+    // < 10m: Excellent (3 bars, Green)
+    // < 30m: Good (2 bars, Yellow)
+    // > 30m: Weak (1 bar, Red)
+    // null: Searching (Pulsing Gray)
+
+    let color = "text-gray-500";
+    let bars = 0;
+    let label = "BUSCANDO";
+
+    if (accuracy !== null) {
+        if (accuracy <= 12) {
+            color = "text-green-500";
+            bars = 3;
+            label = "GPS FORTE";
+        } else if (accuracy <= 30) {
+            color = "text-yellow-500";
+            bars = 2;
+            label = "GPS OK";
+        } else {
+            color = "text-red-500";
+            bars = 1;
+            label = "SINAL FRACO";
+        }
+    }
+
+    return (
+        <div className={`bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-full flex items-center gap-2 transition-colors`}>
+            <div className="flex items-end gap-0.5 h-3">
+                <div className={`w-1 rounded-sm ${bars >= 1 ? color : 'bg-gray-700'} h-1/3`}></div>
+                <div className={`w-1 rounded-sm ${bars >= 2 ? color : 'bg-gray-700'} h-2/3`}></div>
+                <div className={`w-1 rounded-sm ${bars >= 3 ? color : 'bg-gray-700'} h-full`}></div>
+            </div>
+            <span className={`text-[10px] font-bold ${accuracy === null ? 'animate-pulse text-gray-400' : color}`}>
+                {label}
+            </span>
+        </div>
+    );
+};
+
+const LongPressButton = ({ onComplete, children, className, fillClass = "bg-white/30" }: { onComplete: () => void, children?: React.ReactNode, className?: string, fillClass?: string }) => {
     const [progress, setProgress] = useState(0);
     const intervalRef = useRef<number | null>(null);
+    const isPressed = useRef(false);
 
     const startPress = () => {
+        isPressed.current = true;
         setProgress(0);
         intervalRef.current = window.setInterval(() => {
             setProgress(prev => {
@@ -270,12 +313,14 @@ const LongPressButton = ({ onComplete, children, className }: { onComplete: () =
                     onComplete();
                     return 100;
                 }
-                return prev + 4; 
+                // Slower fill: +1.5 per 20ms = ~1.3 seconds to fill
+                return prev + 1.5; 
             });
         }, 20);
     };
 
     const endPress = () => {
+        isPressed.current = false;
         if (intervalRef.current) clearInterval(intervalRef.current);
         setProgress(0);
     };
@@ -290,7 +335,7 @@ const LongPressButton = ({ onComplete, children, className }: { onComplete: () =
             className={`relative overflow-hidden select-none active:scale-95 transition-transform ${className || ''}`}
         >
             <div 
-                className="absolute left-0 top-0 bottom-0 bg-white/30 transition-all duration-75 ease-linear" 
+                className={`absolute left-0 top-0 bottom-0 transition-all duration-75 ease-linear ${fillClass}`}
                 style={{ width: `${progress}%` }}
             ></div>
             <div className="relative z-10 flex items-center justify-center gap-2 w-full h-full">
@@ -464,6 +509,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   // Telemetry State
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [distance, setDistance] = useState(0);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [route, setRoute] = useState<RoutePoint[]>([]);
   const [currentPaceInstant, setCurrentPaceInstant] = useState("--'--");
   const [elevationGain, setElevationGain] = useState(0);
@@ -604,6 +650,8 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
 
       watchId.current = navigator.geolocation.watchPosition(
           (pos) => {
+              setGpsAccuracy(pos.coords.accuracy); // Update accuracy even if filtered
+              
               if (pos.coords.accuracy > 30) return;
               
               // --- TELEMETRY ---
@@ -684,6 +732,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       }, 1000);
       watchId.current = navigator.geolocation.watchPosition(
           (pos) => {
+              setGpsAccuracy(pos.coords.accuracy);
               if (pos.coords.accuracy > 30) return;
               const pt: RoutePoint = { lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: pos.timestamp };
               setRoute(prev => {
@@ -895,16 +944,14 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
               {/* HUD TOP */}
               <div className="relative z-10 pt-safe-top px-4 pb-4 flex justify-between items-center bg-gradient-to-b from-black/90 to-transparent pointer-events-auto">
                   <div className="flex items-center gap-2">
-                      <div className="bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-full flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full animate-pulse ${isSpeaking ? 'bg-blue-500 shadow-[0_0_10px_#3b82f6] scale-125' : 'bg-green-500'}`}></div>
-                          <span className={`text-[10px] font-bold ${isSpeaking ? 'text-blue-400 animate-pulse' : 'text-gray-300'}`}>{isSpeaking ? 'COACH FALANDO...' : 'GPS ATIVO'}</span>
-                          <VoiceVisualizer isActive={isSpeaking} />
-                      </div>
+                      <GpsStatus accuracy={gpsAccuracy} />
                       
-                      <div className="bg-yellow-500/20 backdrop-blur-md border border-yellow-500/50 px-3 py-1.5 rounded-full flex items-center gap-1.5">
-                          <Zap size={12} className="text-yellow-400 fill-current" />
-                          <span className="text-[10px] font-black text-yellow-400">+{xpEarned} XP</span>
-                      </div>
+                      {isSpeaking && (
+                          <div className="bg-blue-500/20 backdrop-blur-md border border-blue-500/50 px-3 py-1.5 rounded-full flex items-center gap-2 animate-fade-in">
+                              <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></div>
+                              <VoiceVisualizer isActive={isSpeaking} />
+                          </div>
+                      )}
                   </div>
 
                   <div className="flex gap-2">
@@ -1012,7 +1059,11 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                       <div className="flex items-center justify-between gap-4">
                           {isPaused ? (
                               <>
-                                <LongPressButton onComplete={endRun} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white h-20 rounded-2xl flex flex-col items-center justify-center gap-1 font-bold uppercase tracking-wide border border-gray-700">
+                                <LongPressButton 
+                                    onComplete={endRun} 
+                                    fillClass="bg-red-500/50"
+                                    className="flex-1 bg-gray-800 hover:bg-gray-700 text-white h-20 rounded-2xl flex flex-col items-center justify-center gap-1 font-bold uppercase tracking-wide border border-gray-700"
+                                >
                                     <Square size={24} fill="white" /> 
                                     <span className="text-[10px]">Segure p/ Fim</span>
                                 </LongPressButton>
@@ -1058,6 +1109,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                           time: formatTime(elapsedSeconds),
                           pace: `${formatPace(elapsedSeconds / (distance || 1))}/km`
                       }}
+                      route={route}
                   />
               )}
               
