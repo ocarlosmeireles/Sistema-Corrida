@@ -24,6 +24,7 @@
               'bounce-slow': 'bounce 3s infinite',
               'rocket': 'rocket-flight 2s ease-in-out infinite',
               'breath': 'heavy-breath 3s ease-in-out infinite',
+              'wind-rush': 'windRush 1.5s ease-in-out infinite',
             },
             keyframes: {
               fadeIn: {
@@ -38,6 +39,11 @@
               'heavy-breath': {
                 '0%, 100%': { transform: 'scale(1)', opacity: '1' },
                 '50%': { transform: 'scale(0.92)', opacity: '0.6' },
+              },
+              windRush: {
+                '0%': { transform: 'translateX(-100%) skewX(-20deg)', opacity: '0' },
+                '50%': { opacity: '0.5' },
+                '100%': { transform: 'translateX(200%) skewX(-20deg)', opacity: '0' },
               }
             }
           }

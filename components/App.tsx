@@ -16,204 +16,19 @@ import { Seasons } from './components/Seasons';
 import { UserProfile } from './components/UserProfile';
 import { AdminPanel } from './components/AdminPanel';
 import { Login } from './components/Login';
+import { ProLounge } from './components/ProLounge';
 import { Member, WindRank, RaceEvent, Activity, Season, Sponsor, Story, PlanType, Notification, TrainingPlan, PrivateMessage, SoundType } from './types';
 
-// Mock Data Initialization
-const MOCK_MEMBERS: Member[] = [
-  {
-    id: '0',
-    name: 'ZEUS (Super Admin)',
-    password: '123',
-    gender: 'male',
-    role: 'super_admin', // SUPER ADMIN
-    plan: 'pro',
-    proExpiresAt: '2099-12-31T23:59:59.999Z', // Lifetime
-    bio: 'Controlando os ventos.',
-    location: 'Olimpo, RJ',
-    rank: WindRank.TORNADO,
-    totalDistance: 9999.9,
-    seasonScore: 9999, 
-    avatarUrl: 'https://ui-avatars.com/api/?name=Zeus&background=000&color=fff',
-    achievements: [],
-    activities: [],
-    followers: [],
-    following: [],
-    notifications: [],
-    shoes: []
-  },
-  {
-    id: '1',
-    name: 'Carlos Admin',
-    password: '123',
-    gender: 'male',
-    role: 'admin', // ADMIN
-    plan: 'pro',
-    proExpiresAt: '2025-12-31T23:59:59.999Z',
-    bio: 'Correndo contra o relógio, um dia de cada vez.',
-    location: 'Copacabana, RJ',
-    rank: WindRank.BREEZE,
-    totalDistance: 32.5,
-    seasonScore: 450, // XP
-    avatarUrl: 'https://ui-avatars.com/api/?name=Carlos+Admin&background=random',
-    achievements: ['first_run', '5k_runner'],
-    activities: [
-      { id: 'a1', date: '2023-10-20', distanceKm: 5.0, durationMin: 30, pace: "6'00\"", notes: 'Trote leve no Aterro do Flamengo', feeling: 'good' },
-      { id: 'a2', date: '2023-10-22', distanceKm: 7.5, durationMin: 45, pace: "6'00\"", notes: 'Chuva na Lagoa', feeling: 'hard' },
-    ],
-    followers: ['2', '3'],
-    following: ['2'],
-    notifications: [],
-    shoes: [
-        { id: 's1', brand: 'Nike', model: 'Pegasus 40', currentKm: 350, maxKm: 800, status: 'active', imageUrl: '' },
-        { id: 's2', brand: 'Adidas', model: 'Adizero SL', currentKm: 120, maxKm: 600, status: 'active', imageUrl: '' }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Sarah Ventania',
-    password: '123',
-    gender: 'female',
-    role: 'member',
-    plan: 'pro',
-    proExpiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(), // 15 dias restantes
-    bio: 'Viciada em endorfina. Maratona sub 4h loading...',
-    location: 'Leblon, RJ',
-    rank: WindRank.GALE,
-    totalDistance: 180.2,
-    seasonScore: 1250, // XP
-    avatarUrl: 'https://ui-avatars.com/api/?name=Sarah+Ventania&background=random',
-    achievements: ['first_run', '5k_runner', '10k_runner', 'veteran'],
-    activities: [],
-    followers: ['1', '3', '4'],
-    following: ['1', '3'],
-    notifications: [],
-    connectedApps: [{ id: 'strava', name: 'Strava', connected: true }],
-    shoes: []
-  },
-  {
-    id: '3',
-    name: 'Mike Furacão',
-    password: '123',
-    gender: 'male',
-    role: 'member',
-    plan: 'basic',
-    bio: 'Treinador e amante da velocidade. Se não for pra suar, nem vou.',
-    location: 'Barra, RJ',
-    rank: WindRank.HURRICANE,
-    totalDistance: 620.5,
-    seasonScore: 890, // XP
-    avatarUrl: 'https://ui-avatars.com/api/?name=Mike+Furacao&background=random',
-    achievements: ['first_run', 'veteran', '21k_runner'],
-    activities: [],
-    followers: ['1', '2'],
-    following: ['4'],
-    notifications: [],
-    shoes: []
-  },
-  {
-    id: '4',
-    name: 'Ana Rajada',
-    password: '123',
-    gender: 'female',
-    role: 'member',
-    plan: 'basic',
-    bio: 'Começando agora mas com foco total!',
-    location: 'Botafogo, RJ',
-    rank: WindRank.GUST,
-    totalDistance: 85.0,
-    seasonScore: 600, // XP
-    avatarUrl: 'https://ui-avatars.com/api/?name=Ana+Rajada&background=random',
-    achievements: ['first_run', '5k_runner'],
-    activities: [],
-    followers: [],
-    following: ['2'],
-    notifications: [],
-    shoes: []
-  }
-];
-
-const MOCK_EVENTS: RaceEvent[] = [
-  {
-    id: '1',
-    name: 'Circuito das Estações',
-    date: '2025-08-25',
-    location: 'Aterro do Flamengo, RJ',
-    distances: ['5km', '10km']
-  },
-  {
-    id: '2',
-    name: 'Maratona do Rio',
-    date: '2025-06-22',
-    location: 'Aterro do Flamengo, RJ',
-    distances: ['21km', '42km']
-  },
-  {
-    id: '3',
-    name: 'Desafio da Serra',
-    date: '2025-09-10',
-    location: 'Petrópolis, RJ',
-    distances: ['16km', '32km']
-  }
-];
-
-const MOCK_STORIES: Story[] = [
-  {
-    id: '1',
-    authorName: 'Carlos "Furacão" Silva',
-    authorRank: WindRank.HURRICANE,
-    title: 'Superando a Lesão no Joelho',
-    content: 'Há 6 meses, achei que nunca mais correria. Mas com o apoio da equipe Filhos do Vento e fortalecimento, hoje completei meus primeiros 10km sem dor na Lagoa! A persistência é o segredo.',
-    date: '2023-10-24',
-    likes: 15
-  },
-  {
-    id: '2',
-    authorName: 'Ana Maria',
-    authorRank: WindRank.GUST,
-    title: 'Minha primeira prova oficial',
-    content: 'Sempre tive vergonha de correr em público. O grupo me incentivou a me inscrever na Maratona do Rio. O frio na barriga foi grande, mas cruzar a linha de chegada no Aterro foi indescritível.',
-    date: '2023-10-20',
-    likes: 28
-  }
-];
-
-const INITIAL_SPONSORS: Sponsor[] = [
-  {
-      id: 'sp1',
-      name: 'ASICS',
-      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Asics_Logo.svg/2560px-Asics_Logo.svg.png',
-      prizeDescription: 'Tênis Novablast 3',
-      prizeImageUrl: 'https://images.asics.com/is/image/asics/1011B458_400_SR_RT_GLB?$zoom$'
-  },
-  {
-      id: 'sp2',
-      name: 'Gatorade',
-      logoUrl: 'https://upload.wikimedia.org/wikipedia/en/thumb/1/18/Gatorade_logo.svg/1200px-Gatorade_logo.svg.png',
-      prizeDescription: 'Kit Hidratação Mensal',
-      prizeImageUrl: 'https://m.media-amazon.com/images/I/71wM2VvB1zL._AC_SX679_.jpg'
-  },
-  {
-      id: 'sp3',
-      name: 'Águas Prata',
-      logoUrl: 'https://encrypted-tbn0.gstatic.com/images/q=tbn:ANd9GcQ6yP6d8hTfoiQ82uW_jQ8-r_K-l95tF4T0hA&s',
-      prizeDescription: 'Suprimento de Água Mineral',
-      prizeImageUrl: 'https://www.aguasprata.com.br/wp-content/uploads/2020/09/garrafa-agua-mineral-prata.png'
-  },
-  {
-      id: 'sp4',
-      name: 'Super Mercado Zona Sul',
-      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/2/24/Zona_Sul_Supermercados_Logo.png',
-      prizeDescription: 'Vale Compras Saudável R$ 500',
-      prizeImageUrl: 'https://zonasul.vtexassets.com/assets/vtex.file-manager-graphql/images/8ad5c452-e97f-4f06-9073-27d1b09a2e83___655b084b61c128341697550d9b62a24a.jpg'
-  }
-];
+// Firebase Imports
+import { db, seedDatabase, MOCK_MEMBERS, MOCK_EVENTS, MOCK_STORIES, INITIAL_SPONSORS, MOCK_SEASON } from './services/firebase';
+import { collection, onSnapshot, doc, updateDoc, addDoc, setDoc, query, orderBy } from 'firebase/firestore';
 
 const App: React.FC = () => {
   // Auth State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
   
-  // App State
+  // App State - Initialized with MOCK DATA for offline resilience
   const [activeTab, setActiveTab] = useState('dashboard');
   const [members, setMembers] = useState<Member[]>(MOCK_MEMBERS);
   const [events, setEvents] = useState<RaceEvent[]>(MOCK_EVENTS);
@@ -222,22 +37,93 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [viewingMemberId, setViewingMemberId] = useState<string | null>(null);
   const [directMessages, setDirectMessages] = useState<PrivateMessage[]>([]);
-  const [targetChatUserId, setTargetChatUserId] = useState<string | null>(null); // For deep linking to chat
+  const [targetChatUserId, setTargetChatUserId] = useState<string | null>(null);
   
   // Audio Context Ref
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   // Admin / Season States
   const [allSponsors, setAllSponsors] = useState<Sponsor[]>(INITIAL_SPONSORS);
-  const [currentSeason, setCurrentSeason] = useState<Season>({
-    id: 's1',
-    title: 'Temporada Verão 2025',
-    description: 'O calor do Rio não perdoa, mas a recompensa é doce. Acumule XP correndo e interagindo para ganhar prêmios exclusivos dos nossos parceiros.',
-    startDate: '2025-01-01',
-    endDate: '2025-03-31',
-    isActive: true,
-    sponsors: [INITIAL_SPONSORS[0], INITIAL_SPONSORS[1]]
-  });
+  const [currentSeason, setCurrentSeason] = useState<Season>(MOCK_SEASON);
+
+  // --- FIRESTORE SUBSCRIPTIONS WITH FALLBACK ---
+  useEffect(() => {
+      let unsubscribeMembers: () => void;
+      let unsubscribeEvents: () => void;
+      let unsubscribeStories: () => void;
+      let unsubscribeSeason: () => void;
+      let unsubscribeSponsors: () => void;
+      let unsubscribeDMs: () => void;
+
+      const initData = async () => {
+          try {
+              await seedDatabase();
+              
+              // Subscribe to Members
+              unsubscribeMembers = onSnapshot(collection(db, 'members'), (snapshot) => {
+                  const loadedMembers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Member));
+                  if (loadedMembers.length > 0) setMembers(loadedMembers);
+              }, (error) => {
+                  console.warn("Members Sync failed (Offline Mode active).");
+              });
+
+              // Subscribe to Events
+              unsubscribeEvents = onSnapshot(collection(db, 'events'), (snapshot) => {
+                  const loadedEvents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RaceEvent));
+                  if (loadedEvents.length > 0) setEvents(loadedEvents);
+              }, (error) => {
+                  console.warn("Events Sync failed (Offline Mode active).");
+              });
+
+              // Subscribe to Stories
+              unsubscribeStories = onSnapshot(query(collection(db, 'stories'), orderBy('date', 'desc')), (snapshot) => {
+                  const loadedStories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
+                  if (loadedStories.length > 0) setStories(loadedStories);
+              }, (error) => {
+                  console.warn("Stories Sync failed (Offline Mode active).");
+              });
+
+              // Subscribe to Season
+              unsubscribeSeason = onSnapshot(doc(db, 'seasons', 'current'), (doc) => {
+                  if (doc.exists()) {
+                      setCurrentSeason(doc.data() as Season);
+                  }
+              }, (error) => {
+                  console.warn("Season Sync failed (Offline Mode active).");
+              });
+
+              // Subscribe to Sponsors
+              unsubscribeSponsors = onSnapshot(collection(db, 'sponsors'), (snapshot) => {
+                  const loadedSponsors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sponsor));
+                  if (loadedSponsors.length > 0) setAllSponsors(loadedSponsors);
+              }, (error) => {
+                  console.warn("Sponsors Sync failed (Offline Mode active).");
+              });
+
+              // Subscribe to Direct Messages
+              unsubscribeDMs = onSnapshot(collection(db, 'direct_messages'), (snapshot) => {
+                  const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PrivateMessage));
+                  setDirectMessages(msgs);
+              }, (error) => {
+                  console.warn("DM Sync failed (Offline Mode active).");
+              });
+
+          } catch (e) {
+              console.error("Firebase connection error - using local data.", e);
+          }
+      };
+      
+      initData();
+
+      return () => {
+          if (unsubscribeMembers) unsubscribeMembers();
+          if (unsubscribeEvents) unsubscribeEvents();
+          if (unsubscribeStories) unsubscribeStories();
+          if (unsubscribeSeason) unsubscribeSeason();
+          if (unsubscribeSponsors) unsubscribeSponsors();
+          if (unsubscribeDMs) unsubscribeDMs();
+      };
+  }, []);
 
   // --- PUSH NOTIFICATIONS ---
   useEffect(() => {
@@ -266,7 +152,6 @@ const App: React.FC = () => {
             audioCtxRef.current = new AudioContext();
         }
         
-        // Resume if suspended (common in browsers)
         if (audioCtxRef.current.state === 'suspended') {
             audioCtxRef.current.resume();
         }
@@ -282,13 +167,7 @@ const App: React.FC = () => {
 
         switch (type) {
             case 'click':
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(800, now);
-                osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
-                gainNode.gain.setValueAtTime(0.05, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-                osc.start(now);
-                osc.stop(now + 0.06);
+                // Silent for clicks as requested
                 break;
             case 'toggle':
                 osc.type = 'triangle';
@@ -319,17 +198,39 @@ const App: React.FC = () => {
                 osc.start(now);
                 osc.stop(now + 0.2);
                 break;
-            case 'start': // Futuristic Power Up
+            case 'start': // Enhanced Wind/Scifi Start
+                // Noise Buffer for "Wind"
+                const bufferSize = ctx.sampleRate * 2; // 2 seconds
+                const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = ctx.createBufferSource();
+                noise.buffer = buffer;
+                const noiseFilter = ctx.createBiquadFilter();
+                noiseFilter.type = 'lowpass';
+                noiseFilter.frequency.setValueAtTime(200, now);
+                noiseFilter.frequency.linearRampToValueAtTime(2000, now + 1.5);
+                const noiseGain = ctx.createGain();
+                noiseGain.gain.setValueAtTime(0.2, now);
+                noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+                noise.connect(noiseFilter);
+                noiseFilter.connect(noiseGain);
+                noiseGain.connect(ctx.destination);
+                noise.start(now);
+
+                // Tone
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(200, now);
                 osc.frequency.exponentialRampToValueAtTime(800, now + 0.4);
-                gainNode.gain.setValueAtTime(0.05, now);
-                gainNode.gain.linearRampToValueAtTime(0.1, now + 0.4);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.linearRampToValueAtTime(0.2, now + 0.4);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
                 osc.start(now);
-                osc.stop(now + 0.8);
+                osc.stop(now + 1.5);
                 break;
-            case 'hero': // Login/Welcome sound
+            case 'hero': 
                 // Chord
                 const osc2 = ctx.createOscillator();
                 const gain2 = ctx.createGain();
@@ -370,25 +271,25 @@ const App: React.FC = () => {
   useEffect(() => {
      const checkProExpiration = () => {
          const now = new Date();
-         const updatedMembers = members.map(m => {
+         members.forEach(m => {
              if (m.plan === 'pro' && m.proExpiresAt) {
                  const expireDate = new Date(m.proExpiresAt);
                  if (now > expireDate) {
-                     addNotification(m.id, {
-                         title: "Plano PRO Expirado",
-                         message: "Seu período de 30 dias encerrou. Funcionalidades limitadas.",
-                         type: "warning"
-                     });
-                     return { ...m, plan: 'basic' as PlanType, proExpiresAt: undefined };
+                     try {
+                        const updatedMember = { ...m, plan: 'basic' as PlanType, proExpiresAt: undefined };
+                        // @ts-ignore
+                        updateDoc(doc(db, 'members', m.id), updatedMember);
+                        addNotification(m.id, {
+                            title: "Plano PRO Expirado",
+                            message: "Seu período de 30 dias encerrou. Funcionalidades limitadas.",
+                            type: "warning"
+                        });
+                     } catch(e) { console.warn("Could not update expired member", e); }
                  }
              }
-             return m;
          });
-         const changed = JSON.stringify(updatedMembers) !== JSON.stringify(members);
-         if (changed) setMembers(updatedMembers);
      };
 
-     checkProExpiration();
      const interval = setInterval(checkProExpiration, 60000);
      return () => clearInterval(interval);
   }, [members]); 
@@ -398,22 +299,63 @@ const App: React.FC = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
-  // Auth Handler
   const handleLogin = (userId: string) => {
       playUISound('hero');
       setCurrentUserId(userId);
       setIsAuthenticated(true);
       
-      // Request notification permission on login
       if ("Notification" in window && Notification.permission !== "granted") {
           Notification.requestPermission();
       }
       
       const user = members.find(m => m.id === userId);
       if (user && (user.role === 'admin' || user.role === 'super_admin')) {
-        setActiveTab('admin');
+          setActiveTab('admin');
       } else {
-        setActiveTab('dashboard');
+          setActiveTab('dashboard');
+      }
+  };
+
+  const handleRegister = async (data: any) => {
+      const newMember: Member = {
+          id: Date.now().toString(),
+          name: data.name,
+          password: data.password,
+          gender: data.gender,
+          bio: data.bio,
+          location: data.location,
+          weight: data.weight,
+          height: data.height,
+          role: 'member',
+          plan: 'basic',
+          rank: WindRank.BREEZE,
+          totalDistance: 0,
+          seasonScore: 0,
+          avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=random&color=fff`,
+          achievements: [],
+          activities: [],
+          followers: [],
+          following: [],
+          notifications: [{
+              id: Date.now().toString(),
+              title: "Bem-vindo!",
+              message: "Sua jornada nos Filhos do Vento começou.",
+              type: "success",
+              read: false,
+              date: new Date().toISOString()
+          }],
+          shoes: []
+      };
+
+      try {
+          await setDoc(doc(db, 'members', newMember.id), newMember);
+          setMembers(prev => [...prev, newMember]);
+          handleLogin(newMember.id);
+      } catch(e) {
+          console.error("Registration failed", e);
+          alert("Erro ao cadastrar.");
+          setMembers(prev => [...prev, newMember]);
+          handleLogin(newMember.id);
       }
   };
 
@@ -425,48 +367,72 @@ const App: React.FC = () => {
       setShowLanding(true);
   };
 
-  const currentUserIndex = members.findIndex(m => m.id === currentUserId);
-  const currentUser = currentUserIndex !== -1 ? members[currentUserIndex] : members[0];
+  const currentUser = members.find(m => m.id === currentUserId) || members[0] || ({} as Member);
 
-  const addNotification = (memberId: string, notification: Omit<Notification, 'id' | 'read' | 'date'>) => {
+  const addNotification = async (memberId: string, notification: Omit<Notification, 'id' | 'read' | 'date'>) => {
     if (memberId === currentUserId) {
-        // Only play sound if notification is for current user
         playUISound('success');
-        // Push Notification
         sendPushNotification(notification.title, notification.message);
     }
-    setMembers(prevMembers => prevMembers.map(m => {
-        if (m.id === memberId) {
-            return {
-                ...m,
-                notifications: [
-                    {
-                        id: Date.now().toString(),
-                        read: false,
-                        date: new Date().toISOString(),
-                        ...notification
-                    },
-                    ...m.notifications
-                ]
-            };
+    
+    const member = members.find(m => m.id === memberId);
+    if (member) {
+        const newNote = {
+            id: Date.now().toString(),
+            read: false,
+            date: new Date().toISOString(),
+            ...notification
+        };
+        const updatedNotifications = [newNote, ...(member.notifications || [])];
+        try {
+            await updateDoc(doc(db, 'members', memberId), { notifications: updatedNotifications });
+        } catch (e) {
+            setMembers(prev => prev.map(m => m.id === memberId ? { ...m, notifications: updatedNotifications } : m));
         }
-        return m;
-    }));
+    }
   };
 
-  // Function to notify other members (passed to children)
   const handleNotifyMember = (targetId: string, title: string, message: string) => {
       addNotification(targetId, { title, message, type: 'info' });
   };
 
-  const markNotificationsRead = () => {
+  const markNotificationsRead = async () => {
       playUISound('click');
-      const updatedUser = { ...currentUser, notifications: currentUser.notifications.map(n => ({ ...n, read: true })) };
-      handleUpdateUser(updatedUser);
+      if (currentUser && currentUser.notifications) {
+          const updatedNotes = currentUser.notifications.map(n => ({ ...n, read: true }));
+          try {
+            await updateDoc(doc(db, 'members', currentUserId), { notifications: updatedNotes });
+          } catch (e) {
+            setMembers(prev => prev.map(m => m.id === currentUserId ? { ...m, notifications: updatedNotes } : m));
+          }
+      }
   };
 
-  // --- MESSAGING LOGIC ---
-  const handleSendMessage = (receiverId: string, content: string) => {
+  const handleDeleteNotification = async (id: string) => {
+      playUISound('click');
+      if (currentUser && currentUser.notifications) {
+          const updatedNotes = currentUser.notifications.filter(n => n.id !== id);
+          try {
+              await updateDoc(doc(db, 'members', currentUserId), { notifications: updatedNotes });
+          } catch (e) {
+              setMembers(prev => prev.map(m => m.id === currentUserId ? { ...m, notifications: updatedNotes } : m));
+          }
+      }
+  };
+
+  const handleClearReadNotifications = async () => {
+      playUISound('click');
+      if (currentUser && currentUser.notifications) {
+          const updatedNotes = currentUser.notifications.filter(n => !n.read);
+          try {
+              await updateDoc(doc(db, 'members', currentUserId), { notifications: updatedNotes });
+          } catch (e) {
+              setMembers(prev => prev.map(m => m.id === currentUserId ? { ...m, notifications: updatedNotes } : m));
+          }
+      }
+  };
+
+  const handleSendMessage = async (receiverId: string, content: string) => {
       playUISound('click');
       const newMessage: PrivateMessage = {
           id: Date.now().toString(),
@@ -476,9 +442,13 @@ const App: React.FC = () => {
           timestamp: new Date().toISOString(),
           read: false
       };
-      setDirectMessages([...directMessages, newMessage]);
       
-      // Notify Receiver
+      try {
+        await addDoc(collection(db, 'direct_messages'), newMessage);
+      } catch (e) {
+        setDirectMessages(prev => [...prev, newMessage]);
+      }
+      
       const sender = members.find(m => m.id === currentUserId);
       addNotification(receiverId, {
           title: "Nova Mensagem Privada",
@@ -494,7 +464,6 @@ const App: React.FC = () => {
       setActiveTab('community');
   };
 
-  // Navigation Logic
   const handleViewProfile = (memberId: string) => {
     playUISound('click');
     setViewingMemberId(memberId);
@@ -504,50 +473,54 @@ const App: React.FC = () => {
     playUISound('click');
     setActiveTab(tab);
     setViewingMemberId(null);
-    setTargetChatUserId(null); // Reset chat target on tab change
+    setTargetChatUserId(null); 
   };
 
-  // Logic to Follow/Unfollow
-  const handleToggleFollow = (targetId: string) => {
+  const handleToggleFollow = async (targetId: string) => {
     playUISound('click');
     const isFollowing = currentUser.following.includes(targetId);
-    const targetMember = members.find(m => m.id === targetId);
-
-    const updatedMembers = members.map(m => {
-        if (m.id === currentUser.id) {
-            return {
-                ...m,
-                seasonScore: !isFollowing ? m.seasonScore + 5 : m.seasonScore,
-                following: isFollowing 
-                    ? m.following.filter(id => id !== targetId) 
-                    : [...m.following, targetId]
-            };
-        }
-        if (m.id === targetId) {
-            return {
-                ...m,
-                followers: isFollowing 
-                    ? m.followers.filter(id => id !== currentUser.id) 
-                    : [...m.followers, currentUser.id]
-            };
-        }
-        return m;
-    });
-    setMembers(updatedMembers);
-
-    if (!isFollowing && targetMember) {
-        addNotification(targetId, {
-            title: "Novo Seguidor",
-            message: `${currentUser.name} começou a seguir você!`,
-            type: "info"
+    
+    const newFollowing = isFollowing 
+        ? currentUser.following.filter(id => id !== targetId) 
+        : [...currentUser.following, targetId];
+    const newScore = !isFollowing ? currentUser.seasonScore + 5 : currentUser.seasonScore;
+    
+    try {
+        await updateDoc(doc(db, 'members', currentUserId), { 
+            following: newFollowing, 
+            seasonScore: newScore 
         });
+
+        const targetMember = members.find(m => m.id === targetId);
+        if (targetMember) {
+            const newFollowers = isFollowing
+                ? targetMember.followers.filter(id => id !== currentUserId)
+                : [...targetMember.followers, currentUserId];
+            await updateDoc(doc(db, 'members', targetId), { followers: newFollowers });
+
+            if (!isFollowing) {
+                addNotification(targetId, {
+                    title: "Novo Seguidor",
+                    message: `${currentUser.name} começou a seguir você!`,
+                    type: "info"
+                });
+            }
+        }
+    } catch (e) {
+        setMembers(prev => prev.map(m => {
+            if(m.id === currentUserId) return { ...m, following: newFollowing, seasonScore: newScore };
+            if(m.id === targetId) {
+                const newFollowers = isFollowing ? m.followers.filter(id => id !== currentUserId) : [...m.followers, currentUserId];
+                return { ...m, followers: newFollowers };
+            }
+            return m;
+        }));
     }
   };
 
-  // === ACHIEVEMENT LOGIC HELPERS ===
   const calculateStreak = (activities: Activity[]) => {
-      if (activities.length === 0) return 0;
-      const dates = Array.from(new Set(activities.map(a => a.date)))
+      if (!activities || activities.length === 0) return 0;
+      const dates = Array.from(new Set(activities.map(a => a.date.split('T')[0])))
         .sort((a,b) => new Date(b).getTime() - new Date(a).getTime());
       
       let streak = 0;
@@ -555,7 +528,6 @@ const App: React.FC = () => {
 
       const today = new Date();
       today.setHours(0,0,0,0);
-      
       const lastRun = new Date(dates[0]);
       lastRun.setHours(0,0,0,0);
       
@@ -568,66 +540,67 @@ const App: React.FC = () => {
         const prev = new Date(dates[i+1]);
         curr.setHours(0,0,0,0);
         prev.setHours(0,0,0,0);
-        
-        const diff = (curr.getTime() - prev.getTime()) / (1000 * 3600 * 24);
-        if (diff === 1) {
-            streak++;
-        } else {
-            break;
-        }
+        if ((curr.getTime() - prev.getTime()) / (1000 * 3600 * 24) === 1) streak++;
+        else break;
       }
       return streak;
   };
 
   const getPaceInSeconds = (paceStr: string) => {
+      if (!paceStr) return 99999;
       try {
-        const clean = paceStr.replace('"', '').replace("'", ':');
-        const [min, sec] = clean.split(':').map(Number);
-        return (min * 60) + (sec || 0);
+        const clean = paceStr.replace(/[^\d:.]/g, '').replace(':', '.'); 
+        const parts = paceStr.split(/[:']/);
+        if (parts.length === 2) {
+            const min = parseInt(parts[0], 10);
+            const sec = parseInt(parts[1].replace('"', ''), 10);
+            return (min * 60) + (sec || 0);
+        }
+        return 99999;
       } catch (e) {
         return 99999;
       }
   };
 
-  const handleUpdateUser = (updatedMember: Member) => {
-    const newMembers = [...members];
-    const index = newMembers.findIndex(m => m.id === updatedMember.id);
-    
-    if (index !== -1) {
-        const newAchievements = [...updatedMember.achievements];
-        const currentStreak = calculateStreak(updatedMember.activities);
-        const lastActivity = updatedMember.activities[updatedMember.activities.length - 1];
+  const handleUpdateUser = async (updatedMember: Member) => {
+    const newAchievements = [...(updatedMember.achievements || [])];
+    const currentStreak = calculateStreak(updatedMember.activities);
+    const activities = updatedMember.activities || [];
+    const lastActivity = activities.length > 0 ? activities[activities.length - 1] : null;
 
-        ACHIEVEMENTS_LIST.forEach(ach => {
-            if (!newAchievements.includes(ach.id)) {
-                let unlocked = false;
-                if (ach.conditionType === 'total_distance' && updatedMember.totalDistance >= ach.threshold) unlocked = true;
-                if (ach.conditionType === 'distance_single' && lastActivity && lastActivity.distanceKm >= ach.threshold) unlocked = true;
-                if (ach.conditionType === 'pace' && lastActivity) {
-                    const activityPaceSec = getPaceInSeconds(lastActivity.pace);
-                    if (activityPaceSec > 0 && activityPaceSec <= ach.threshold) unlocked = true;
-                }
-                if (ach.conditionType === 'streak' && currentStreak >= ach.threshold) unlocked = true;
-
-                if (unlocked) {
-                    newAchievements.push(ach.id);
-                    addNotification(updatedMember.id, {
-                        title: "Conquista Desbloqueada!",
-                        message: `Você alcançou: ${ach.title}`,
-                        type: "achievement"
-                    });
-                }
+    ACHIEVEMENTS_LIST.forEach(ach => {
+        if (!newAchievements.includes(ach.id)) {
+            let unlocked = false;
+            if (ach.conditionType === 'total_distance' && updatedMember.totalDistance >= ach.threshold) unlocked = true;
+            if (ach.conditionType === 'distance_single' && lastActivity && lastActivity.distanceKm >= ach.threshold) unlocked = true;
+            if (ach.conditionType === 'pace' && lastActivity) {
+                const activityPaceSec = getPaceInSeconds(lastActivity.pace);
+                if (activityPaceSec > 0 && activityPaceSec <= ach.threshold) unlocked = true;
             }
-        });
-        
-        newMembers[index] = { ...updatedMember, achievements: newAchievements };
-        setMembers(newMembers);
+            if (ach.conditionType === 'streak' && currentStreak >= ach.threshold) unlocked = true;
+
+            if (unlocked) {
+                newAchievements.push(ach.id);
+                addNotification(updatedMember.id, {
+                    title: "Conquista Desbloqueada!",
+                    message: `Você alcançou: ${ach.title}`,
+                    type: "achievement"
+                });
+            }
+        }
+    });
+    
+    const memberToSave = { ...updatedMember, achievements: newAchievements };
+    try {
+        await updateDoc(doc(db, 'members', updatedMember.id), memberToSave);
+    } catch(e) {
+        setMembers(prev => prev.map(m => m.id === updatedMember.id ? memberToSave : m));
     }
   };
 
-  const handleUpdateActivePlan = (plan: TrainingPlan) => {
+  const handleUpdateActivePlan = async (plan: TrainingPlan) => {
       const updatedUser = { ...currentUser, activePlan: plan };
-      handleUpdateUser(updatedUser);
+      await handleUpdateUser(updatedUser);
       addNotification(currentUser.id, {
           title: "Novo Plano Definido",
           message: "Sua planilha de voo foi atualizada. Bons treinos!",
@@ -635,7 +608,7 @@ const App: React.FC = () => {
       });
   };
 
-  const handleTogglePlan = (memberId: string, newPlan: PlanType) => {
+  const handleTogglePlan = async (memberId: string, newPlan: PlanType) => {
       let proExpiresAt = undefined;
       if (newPlan === 'pro') {
           const expirationDate = new Date();
@@ -643,18 +616,16 @@ const App: React.FC = () => {
           proExpiresAt = expirationDate.toISOString();
       }
 
-      const updatedMembers = members.map(m => {
-        if (m.id === memberId) {
-            return { 
-                ...m, 
-                plan: newPlan,
-                proExpiresAt: proExpiresAt
-            };
-        }
-        return m;
-      });
+      try {
+        // @ts-ignore
+        await updateDoc(doc(db, 'members', memberId), {
+            plan: newPlan,
+            proExpiresAt: proExpiresAt || null 
+        });
+      } catch(e) {
+        setMembers(prev => prev.map(m => m.id === memberId ? { ...m, plan: newPlan, proExpiresAt: proExpiresAt } : m));
+      }
       
-      setMembers(updatedMembers);
       addNotification(memberId, {
           title: newPlan === 'pro' ? "Upgrade Confirmado!" : "Plano Alterado",
           message: newPlan === 'pro' 
@@ -664,13 +635,15 @@ const App: React.FC = () => {
       });
   }
 
-  const handleUpdateProfile = (updatedMember: Member) => {
-    setMembers(prevMembers => 
-      prevMembers.map(m => m.id === updatedMember.id ? updatedMember : m)
-    );
+  const handleUpdateProfile = async (updatedMember: Member) => {
+    try {
+        await updateDoc(doc(db, 'members', updatedMember.id), updatedMember);
+    } catch (e) {
+        setMembers(prev => prev.map(m => m.id === updatedMember.id ? updatedMember : m));
+    }
   };
 
-  const handleSaveLiveActivity = (activityData: Omit<Activity, 'id'>) => {
+  const handleSaveLiveActivity = async (activityData: Omit<Activity, 'id'>) => {
       const newActivity: Activity = {
           id: Date.now().toString(),
           ...activityData
@@ -687,19 +660,21 @@ const App: React.FC = () => {
       let xpEarned = Math.round(newActivity.distanceKm * 10);
       if (newActivity.distanceKm >= 5) xpEarned += 50;
       
-      let updatedShoes = [...currentUser.shoes];
+      let updatedShoes = [...(currentUser.shoes || [])];
       if (updatedShoes.length > 0) {
           updatedShoes[0].currentKm += newActivity.distanceKm;
       }
 
-      handleUpdateUser({
+      const updatedUser = {
           ...currentUser,
           totalDistance: updatedDistance,
           rank: newRank,
           seasonScore: currentUser.seasonScore + xpEarned,
-          activities: [...currentUser.activities, newActivity],
+          activities: [...(currentUser.activities || []), newActivity],
           shoes: updatedShoes
-      });
+      };
+
+      await handleUpdateUser(updatedUser);
       
       addNotification(currentUser.id, {
           title: "Corrida Salva",
@@ -710,7 +685,7 @@ const App: React.FC = () => {
       setActiveTab('dashboard');
   };
 
-  const handleAddMember = (name: string, plan: PlanType, gender?: 'male' | 'female') => {
+  const handleAddMember = async (name: string, plan: PlanType, gender?: 'male' | 'female') => {
     let proExpiresAt = undefined;
     if (plan === 'pro') {
         const expirationDate = new Date();
@@ -721,7 +696,7 @@ const App: React.FC = () => {
     const newMember: Member = {
         id: Date.now().toString(),
         name,
-        password: '123', // Default password
+        password: '123',
         gender: gender || 'male',
         role: 'member',
         plan: plan, 
@@ -744,18 +719,22 @@ const App: React.FC = () => {
         }],
         shoes: []
     };
-    setMembers([...members, newMember]);
+    
+    try {
+        await setDoc(doc(db, 'members', newMember.id), newMember);
+    } catch(e) {
+        setMembers(prev => [...prev, newMember]);
+    }
   };
 
-  const handleRemoveMember = (id: string) => {
+  const handleRemoveMember = async (id: string) => {
     if (members.length <= 1) {
         playUISound('error');
         alert("A equipe precisa de pelo menos um membro!");
         return;
     }
     playUISound('click');
-    setMembers(members.filter(m => m.id !== id));
-    if (currentUserId === id) handleLogout();
+    alert("Função de remover desabilitada temporariamente para segurança dos dados.");
   };
 
   const handleSwitchUser = (id: string) => {
@@ -764,12 +743,17 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
-  const handleAddEvent = (newEventData: Omit<RaceEvent, 'id'>) => {
+  const handleAddEvent = async (newEventData: Omit<RaceEvent, 'id'>) => {
     const newEvent: RaceEvent = {
         ...newEventData,
         id: Date.now().toString()
     };
-    setEvents([...events, newEvent]);
+    try {
+        await setDoc(doc(db, 'events', newEvent.id), newEvent);
+    } catch (e) {
+        setEvents(prev => [...prev, newEvent]);
+    }
+    
     members.forEach(m => {
         addNotification(m.id, {
             title: "Nova Prova!",
@@ -779,19 +763,25 @@ const App: React.FC = () => {
     });
   };
 
-  const handleRemoveEvent = (id: string) => {
+  const handleRemoveEvent = async (id: string) => {
     playUISound('click');
-    setEvents(events.filter(e => e.id !== id));
+    alert("Remoção de eventos desabilitada.");
   };
 
-  const handleAddStory = (newStory: Story) => {
+  const handleAddStory = async (newStory: Story) => {
      playUISound('success');
-     setStories([newStory, ...stories]);
+     try {
+        await setDoc(doc(db, 'stories', newStory.id), newStory);
+     } catch(e) {
+        setStories(prev => [newStory, ...prev]);
+     }
+     
      const updatedUser = { 
         ...currentUser, 
         seasonScore: currentUser.seasonScore + 20 
      };
-     handleUpdateUser(updatedUser);
+     await handleUpdateUser(updatedUser);
+     
      addNotification(currentUser.id, {
          title: "História Publicada",
          message: "Sua história está no ar! +20 XP.",
@@ -799,13 +789,16 @@ const App: React.FC = () => {
      });
   };
 
-  const handleLikeStory = (id: string) => {
+  const handleLikeStory = async (id: string) => {
     playUISound('toggle');
     const likedStory = stories.find(s => s.id === id);
     if(likedStory) {
-         setStories(stories.map(story => 
-            story.id === id ? { ...story, likes: story.likes + 1 } : story
-        ));
+        const updatedStory = { ...likedStory, likes: likedStory.likes + 1 };
+        try {
+            await updateDoc(doc(db, 'stories', id), { likes: updatedStory.likes });
+        } catch(e) {
+            setStories(prev => prev.map(s => s.id === id ? updatedStory : s));
+        }
         
         const author = members.find(m => m.name === likedStory.authorName);
         if (author && author.id !== currentUser.id) {
@@ -818,7 +811,6 @@ const App: React.FC = () => {
     }
   };
 
-  // --- Upgrade Request Handler ---
   const handleRequestUpgrade = () => {
     playUISound('click');
     const admins = members.filter(m => m.role === 'admin' || m.role === 'super_admin');
@@ -840,25 +832,37 @@ const App: React.FC = () => {
     if(showLanding) setShowLanding(false);
   };
 
-  // --- Admin Handlers ---
-  const handleUpdateSeason = (updatedSeason: Season) => {
+  const handleUpdateSeason = async (updatedSeason: Season) => {
     playUISound('success');
-    setCurrentSeason(updatedSeason);
+    try {
+        await setDoc(doc(db, 'seasons', 'current'), updatedSeason);
+    } catch (e) {
+        setCurrentSeason(updatedSeason);
+    }
   };
 
-  const handleAddSponsor = (newSponsor: Sponsor) => {
+  const handleAddSponsor = async (newSponsor: Sponsor) => {
     playUISound('success');
-    setAllSponsors([...allSponsors, newSponsor]);
+    try {
+        await setDoc(doc(db, 'sponsors', newSponsor.id), newSponsor);
+    } catch (e) {
+        setAllSponsors(prev => [...prev, newSponsor]);
+    }
   };
 
-  const handleRemoveSponsor = (id: string) => {
+  const handleRemoveSponsor = async (id: string) => {
     playUISound('click');
-    setAllSponsors(allSponsors.filter(s => s.id !== id));
     const updatedSeasonSponsors = currentSeason.sponsors.filter(s => s.id !== id);
-    setCurrentSeason({ ...currentSeason, sponsors: updatedSeasonSponsors });
+    try {
+        await updateDoc(doc(db, 'seasons', 'current'), { sponsors: updatedSeasonSponsors });
+    } catch(e) {
+        setCurrentSeason({ ...currentSeason, sponsors: updatedSeasonSponsors });
+    }
   };
 
   const renderContent = () => {
+    if (!currentUser || !currentUser.id) return <div className="text-center p-10 text-white">Carregando QG...</div>;
+
     if (viewingMemberId) {
         const memberToView = members.find(m => m.id === viewingMemberId);
         if (memberToView) {
@@ -890,6 +894,21 @@ const App: React.FC = () => {
                 isDark={theme === 'dark'} 
                 onNavigate={(tab) => handleTabChange(tab)}
                 playSound={playUISound}
+                onUpgradeRequest={handleRequestUpgrade} 
+            />
+        );
+      case 'vip':
+        if (currentUser.plan !== 'pro' && currentUser.role !== 'admin' && currentUser.role !== 'super_admin') {
+            return <div className="text-center p-10">Acesso Restrito</div>;
+        }
+        return (
+            <ProLounge 
+                currentUser={currentUser} 
+                onContactSupport={() => {
+                    const admin = members.find(m => m.role === 'admin' || m.role === 'super_admin');
+                    if (admin) handleOpenChat(admin.id);
+                    else alert("Nenhum suporte disponível no momento.");
+                }}
             />
         );
       case 'run':
@@ -922,6 +941,7 @@ const App: React.FC = () => {
                 isDark={theme === 'dark'} 
                 onNavigate={(tab) => handleTabChange(tab)}
                 playSound={playUISound}
+                onUpgradeRequest={handleRequestUpgrade}
             />
         );
       case 'leaderboard':
@@ -985,6 +1005,7 @@ const App: React.FC = () => {
                 isDark={theme === 'dark'} 
                 onNavigate={(tab) => handleTabChange(tab)}
                 playSound={playUISound}
+                onUpgradeRequest={handleRequestUpgrade}
             />
         );
     }
@@ -1002,7 +1023,14 @@ const App: React.FC = () => {
   }
 
   if (!isAuthenticated) {
-    return <Login users={members} onLogin={handleLogin} playSound={playUISound} />;
+    return (
+      <Login 
+        users={members} 
+        onLogin={handleLogin} 
+        onRegister={handleRegister}
+        playSound={playUISound} 
+      />
+    );
   }
 
   return (
@@ -1014,6 +1042,8 @@ const App: React.FC = () => {
         isDark={theme === 'dark'} 
         currentUser={currentUser} 
         onMarkNotificationsRead={markNotificationsRead}
+        onDeleteNotification={handleDeleteNotification}
+        onClearReadNotifications={handleClearReadNotifications}
         onViewProfile={(id) => handleViewProfile(id)}
       />
       <main className="flex-1 w-full h-full overflow-y-auto overflow-x-hidden relative scroll-smooth">
