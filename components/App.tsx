@@ -1,26 +1,27 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigation } from './components/Navigation';
-import { Dashboard } from './components/Dashboard';
-import { Leaderboard } from './components/Leaderboard';
-import { DinoCoach } from './components/DinoCoach';
-import { TeamManager } from './components/TeamManager';
-import { Resources } from './components/Resources';
-import { Events } from './components/Events';
-import { LandingPage } from './components/LandingPage';
-import { Community } from './components/Community';
-import { Achievements, ACHIEVEMENTS_LIST } from './components/Achievements';
-import { TrainingPlanGenerator } from './components/TrainingPlanGenerator';
-import { LiveRun } from './components/LiveRun';
-import { Seasons } from './components/Seasons';
-import { UserProfile } from './components/UserProfile';
-import { AdminPanel } from './components/AdminPanel';
-import { Login } from './components/Login';
-import { ProLounge } from './components/ProLounge';
-import { Member, WindRank, RaceEvent, Activity, Season, Sponsor, Story, PlanType, Notification, TrainingPlan, PrivateMessage, SoundType } from './types';
+import { Navigation } from './Navigation';
+import { Dashboard } from './Dashboard';
+import { Leaderboard } from './Leaderboard';
+import { DinoCoach } from './DinoCoach';
+import { TeamManager } from './TeamManager';
+import { Resources } from './Resources';
+import { Events } from './Events';
+import { LandingPage } from './LandingPage';
+import { Community } from './Community';
+import { Achievements, ACHIEVEMENTS_LIST } from './Achievements';
+import { TrainingPlanGenerator } from './TrainingPlanGenerator';
+import { LiveRun } from './LiveRun';
+import { Seasons } from './Seasons';
+import { UserProfile } from './UserProfile';
+import { AdminPanel } from './AdminPanel';
+import { Login } from './Login';
+import { ProLounge } from './ProLounge';
+import { ActivityHistory } from './ActivityHistory';
+import { Member, WindRank, RaceEvent, Activity, Season, Sponsor, Story, PlanType, Notification, TrainingPlan, PrivateMessage, SoundType } from '../types';
 
 // Firebase Imports
-import { db, seedDatabase, MOCK_MEMBERS, MOCK_EVENTS, MOCK_STORIES, INITIAL_SPONSORS, MOCK_SEASON } from './services/firebase';
+import { db, seedDatabase, MOCK_MEMBERS, MOCK_EVENTS, MOCK_STORIES, INITIAL_SPONSORS, MOCK_SEASON } from '../services/firebase';
 import { collection, onSnapshot, doc, updateDoc, addDoc, setDoc, query, orderBy } from 'firebase/firestore';
 
 const App: React.FC = () => {
@@ -167,7 +168,7 @@ const App: React.FC = () => {
 
         switch (type) {
             case 'click':
-                // Silent for clicks as requested
+                // Completely silent for clicks
                 break;
             case 'toggle':
                 osc.type = 'triangle';
@@ -397,7 +398,7 @@ const App: React.FC = () => {
   };
 
   const markNotificationsRead = async () => {
-      playUISound('click');
+      // Removed click sound here
       if (currentUser && currentUser.notifications) {
           const updatedNotes = currentUser.notifications.map(n => ({ ...n, read: true }));
           try {
@@ -409,7 +410,7 @@ const App: React.FC = () => {
   };
 
   const handleDeleteNotification = async (id: string) => {
-      playUISound('click');
+      // Removed click sound here
       if (currentUser && currentUser.notifications) {
           const updatedNotes = currentUser.notifications.filter(n => n.id !== id);
           try {
@@ -421,7 +422,7 @@ const App: React.FC = () => {
   };
 
   const handleClearReadNotifications = async () => {
-      playUISound('click');
+      // Removed click sound here
       if (currentUser && currentUser.notifications) {
           const updatedNotes = currentUser.notifications.filter(n => !n.read);
           try {
@@ -433,7 +434,7 @@ const App: React.FC = () => {
   };
 
   const handleSendMessage = async (receiverId: string, content: string) => {
-      playUISound('click');
+      // Removed click sound here
       const newMessage: PrivateMessage = {
           id: Date.now().toString(),
           senderId: currentUserId,
@@ -458,26 +459,26 @@ const App: React.FC = () => {
   };
 
   const handleOpenChat = (userId: string) => {
-      playUISound('click');
+      // Removed click sound here
       setViewingMemberId(null);
       setTargetChatUserId(userId);
       setActiveTab('community');
   };
 
   const handleViewProfile = (memberId: string) => {
-    playUISound('click');
+    // Removed click sound here
     setViewingMemberId(memberId);
   };
 
   const handleTabChange = (tab: string) => {
-    playUISound('click');
+    // Removed click sound here
     setActiveTab(tab);
     setViewingMemberId(null);
     setTargetChatUserId(null); 
   };
 
   const handleToggleFollow = async (targetId: string) => {
-    playUISound('click');
+    // Removed click sound here
     const isFollowing = currentUser.following.includes(targetId);
     
     const newFollowing = isFollowing 
@@ -733,7 +734,7 @@ const App: React.FC = () => {
         alert("A equipe precisa de pelo menos um membro!");
         return;
     }
-    playUISound('click');
+    // Removed click sound here
     alert("Função de remover desabilitada temporariamente para segurança dos dados.");
   };
 
@@ -764,7 +765,7 @@ const App: React.FC = () => {
   };
 
   const handleRemoveEvent = async (id: string) => {
-    playUISound('click');
+    // Removed click sound here
     alert("Remoção de eventos desabilitada.");
   };
 
@@ -812,7 +813,7 @@ const App: React.FC = () => {
   };
 
   const handleRequestUpgrade = () => {
-    playUISound('click');
+    // Removed click sound here
     const admins = members.filter(m => m.role === 'admin' || m.role === 'super_admin');
     admins.forEach(admin => {
         addNotification(admin.id, {
@@ -851,7 +852,7 @@ const App: React.FC = () => {
   };
 
   const handleRemoveSponsor = async (id: string) => {
-    playUISound('click');
+    // Removed click sound here
     const updatedSeasonSponsors = currentSeason.sponsors.filter(s => s.id !== id);
     try {
         await updateDoc(doc(db, 'seasons', 'current'), { sponsors: updatedSeasonSponsors });
@@ -920,6 +921,8 @@ const App: React.FC = () => {
                 playSound={playUISound}
             />
         );
+      case 'history':
+        return <ActivityHistory currentUser={currentUser} isDark={theme === 'dark'} />;
       case 'season':
         return <Seasons season={currentSeason} members={members} onViewLeaderboard={() => setActiveTab('leaderboard')} />;
       case 'plans':
