@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Filhos do Vento Running Team</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              gray: {
+                950: '#0b0f19', // Custom darker gray for improved OLED look
+              }
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.5s ease-out',
+              'bounce-slow': 'bounce 3s infinite',
+              'rocket': 'rocket-flight 2s ease-in-out infinite',
+              'breath': 'heavy-breath 3s ease-in-out infinite',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              'rocket-flight': {
+                '0%, 100%': { transform: 'translateY(0) rotate(0deg)' },
+                '25%': { transform: 'translateY(-2px) rotate(-5deg)' },
+                '75%': { transform: 'translateY(-2px) rotate(5deg)' },
+              },
+              'heavy-breath': {
+                '0%, 100%': { transform: 'scale(1)', opacity: '1' },
+                '50%': { transform: 'scale(0.92)', opacity: '0.6' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+      body {
+        font-family: 'Inter', sans-serif;
+        /* Base transition for theme switching */
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #fbbf24; /* Amber 400 */
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #f59e0b; /* Amber 500 */
+      }
+      
+      /* Dark Mode Map Tiles Filter */
+      .dark .leaflet-layer {
+        filter: invert(100%) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+      }
+
+      /* Radar Pulse Effect for Map Marker */
+      .radar-marker {
+        position: relative;
+        width: 20px;
+        height: 20px;
+        background: #f59e0b;
+        border: 2px solid white;
+        border-radius: 50%;
+        box-shadow: 0 0 10px rgba(245, 158, 11, 0.8);
+        z-index: 1000;
+      }
+      
+      .radar-marker::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 100%;
+        height: 100%;
+        background: rgba(245, 158, 11, 0.4);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        animation: radar-pulse 2s infinite ease-out;
+        z-index: -1;
+      }
+
+      @keyframes radar-pulse {
+        0% {
+          width: 100%;
+          height: 100%;
+          opacity: 0.8;
+        }
+        100% {
+          width: 400%;
+          height: 400%;
+          opacity: 0;
+        }
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.4.1",
+    "leaflet": "https://unpkg.com/leaflet@1.9.4/dist/leaflet-src.esm.js",
+    "html2canvas": "https://aistudiocdn.com/html2canvas@^1.4.1",
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js",
+    "firebase/analytics": "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js",
+    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/"
+  }
+}
+</script>
+</head>
+  <body class="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+    <div id="root"></div>
+  </body>
+</html>

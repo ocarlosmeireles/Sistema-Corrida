@@ -1,0 +1,8 @@
+{
+  "name": "Filhos do Vento Running Team",
+  "description": "Uma aplicação completa para gerenciamento da equipe de corrida Filhos do Vento. Unidades de treino no Aterro do Flamengo, Lagoa e Leblon, com rastreamento de atividades e gamificação.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera"
+  ]
+}
