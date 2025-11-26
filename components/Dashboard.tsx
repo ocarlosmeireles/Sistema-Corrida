@@ -1,9 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
-import { Member, Season, RaceEvent, Story, SoundType, Activity, Challenge } from '../types';
+import { Member, Season, RaceEvent, Story, SoundType, Activity } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, AreaChart, Area } from 'recharts';
 import { ActivityLogger } from './ActivityLogger';
-import { Sun, CloudRain, Wind, Rocket, Bot, Crown, Heart, Zap, TrendingUp, Plus, ChevronRight, MapPin, Footprints, Calendar, Activity as ActivityIcon, Printer, FileText, Timer, Info, Award, Clock, Flag } from 'lucide-react';
+import { Sun, CloudRain, Wind, Rocket, Bot, Crown, Heart, Zap, TrendingUp, Plus, ChevronRight, MapPin, Footprints, Calendar, Activity as ActivityIcon, Printer, FileText, Timer, Info, Award, Clock } from 'lucide-react';
 import { SocialShareModal } from './SocialShareModal';
 
 interface DashboardProps {
@@ -17,7 +17,6 @@ interface DashboardProps {
   onNavigate?: (tab: string) => void;
   playSound?: (type: SoundType) => void;
   onUpgradeRequest?: () => void;
-  challenges?: Challenge[];
 }
 
 // --- HELPER FUNCTIONS ---
@@ -100,8 +99,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onUpdateUser, 
   onNavigate,
   playSound,
-  onUpgradeRequest,
-  challenges = []
+  onUpgradeRequest
 }) => {
   const [weather, setWeather] = useState<any>(null);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
@@ -131,27 +129,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
         paceSeconds: paceToSeconds(a.pace),
         distance: a.distanceKm
     }))
-    .filter(d => d.paceSeconds > 0 && d.distance > 1); 
-
-  // Active Challenge Logic
-  const activeChallenge = challenges.find(c => c.participants.includes(currentUser.id));
-  let challengeProgress = 0;
-  let challengeCurrent = 0;
-  
-  if (activeChallenge) {
-      const startDate = new Date(activeChallenge.startDate || '2023-01-01');
-      challengeCurrent = currentUser.activities
-        .filter(a => new Date(a.date) >= startDate)
-        .reduce((acc, curr) => acc + curr.distanceKm, 0);
-      challengeProgress = Math.min(100, (challengeCurrent / activeChallenge.targetKm) * 100);
-  }
+    .filter(d => d.paceSeconds > 0 && d.distance > 1); // Filter weird data and very short runs
 
   // Race Predictions Logic (Riegel Formula)
+  // T2 = T1 * (D2 / D1)^1.06
   const calculatePredictions = () => {
       if (currentUser.activities.length === 0) return null;
+      
+      // Find best recent effort (longest run with best pace, minimum 1km)
+      // We prioritize distance slightly to get a better baseline for endurance
       const bestRun = currentUser.activities
-        .filter(a => a.distanceKm >= 1) 
-        .sort((a, b) => b.distanceKm - a.distanceKm)[0];
+        .filter(a => a.distanceKm >= 1) // Minimum 1km to predict anything
+        .sort((a, b) => {
+            // Simple heuristic: longer runs are better predictors for long distances
+            return b.distanceKm - a.distanceKm; 
+        })[0];
 
       if (!bestRun) return null;
 
@@ -224,6 +216,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handlePrintReport = () => {
+      // Ensure the print dialog sees the print-only content
       window.print();
   };
 
@@ -273,48 +266,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
         </button>
-      );
-  };
-
-  // --- ACTIVE CHALLENGE CARD ---
-  const ChallengeCard = () => {
-      if (!activeChallenge) return null;
-      
-      const remaining = Math.max(0, activeChallenge.targetKm - challengeCurrent);
-
-      return (
-          <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 relative overflow-hidden shadow-lg border border-red-500/30 col-span-1 md:col-span-3 lg:col-span-4 group">
-              <div className="flex justify-between items-end mb-2">
-                  <div className="flex items-center gap-3">
-                      <div className="bg-red-500 p-2 rounded-xl text-white shadow-lg shadow-red-500/20">
-                          <Flag size={20} />
-                      </div>
-                      <div>
-                          <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Missão Ativa</span>
-                          <h3 className="text-lg font-bold text-gray-900 dark:text-white">{activeChallenge.title}</h3>
-                      </div>
-                  </div>
-                  <div className="text-right">
-                      <span className="text-2xl font-black text-gray-900 dark:text-white">{challengeCurrent.toFixed(1)}</span>
-                      <span className="text-xs text-gray-500 font-bold ml-1">/ {activeChallenge.targetKm} km</span>
-                  </div>
-              </div>
-              
-              {/* Progress Bar */}
-              <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div 
-                      className="h-full bg-gradient-to-r from-red-500 to-orange-500 transition-all duration-1000 relative"
-                      style={{ width: `${challengeProgress}%` }}
-                  >
-                      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
-                  </div>
-              </div>
-              
-              <div className="flex justify-between mt-2 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                  <span>{challengeProgress.toFixed(0)}% Completo</span>
-                  <span>Faltam {remaining.toFixed(1)} km</span>
-              </div>
-          </div>
       );
   };
 
@@ -687,10 +638,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     />
                 </div>
 
-                {/* 4. CHALLENGE CARD (NEW) */}
-                <ChallengeCard />
-
-                {/* 5. STATS & NEXT RACE */}
+                {/* 4. STATS & NEXT RACE */}
                 <StatCard />
                 
                 <div className="col-span-1 md:col-span-2 lg:col-span-1 flex flex-col gap-4">
@@ -717,11 +665,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                {/* 6. NEW FEATURES: Progress & Predictions */}
+                {/* 5. NEW FEATURES: Progress & Predictions */}
                 <ProgressCard />
                 <PredictionsCard />
 
-                {/* 7. UPSELL (If Basic) */}
+                {/* 6. UPSELL (If Basic) */}
                 {!isPro && <UpsellCard />}
 
             </div>

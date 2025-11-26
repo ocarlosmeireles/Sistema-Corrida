@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Member, Activity } from '../types';
-import { Calendar, Download, Database, FileText, Trash2, Printer, X, MapPin, Clock, Activity as ActivityIcon, Flame, Mountain, Share2, Filter } from 'lucide-react';
+import { Calendar, Download, Database, FileText, Trash2, Printer, X, MapPin, Clock, Activity as ActivityIcon, Flame, Mountain, Share2 } from 'lucide-react';
 import { LiveMap } from './LiveRun';
 import { SocialShareModal } from './SocialShareModal';
 
@@ -14,21 +14,8 @@ interface ActivityHistoryProps {
 export const ActivityHistory: React.FC<ActivityHistoryProps> = ({ currentUser, isDark, onDeleteActivity }) => {
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  
-  // Filters
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
 
-  // Filter Activities
-  const activities = [...currentUser.activities]
-    .filter(a => {
-        if (!startDate && !endDate) return true;
-        const date = new Date(a.date);
-        if (startDate && date < new Date(startDate)) return false;
-        if (endDate && date > new Date(endDate)) return false;
-        return true;
-    })
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const activities = [...currentUser.activities].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   // --- EXPORT LOGIC ---
   const handleDownloadGPX = (e: React.MouseEvent, activity: Activity) => {
@@ -90,37 +77,16 @@ export const ActivityHistory: React.FC<ActivityHistoryProps> = ({ currentUser, i
       }
   };
 
-  const handlePrintList = () => {
+  const handlePrintDossier = () => {
       window.print();
   };
 
-  // --- DOSSIER MODAL ---
+  // --- DOSSIER VIEW ---
   if (selectedActivity) {
       return (
           <div className="fixed inset-0 z-[60] bg-black/95 flex flex-col overflow-y-auto animate-fade-in">
-              
-              {/* PRINT-ONLY VIEW (Clean White PDF) */}
-              <div className="hidden print:block bg-white text-black p-10 font-sans">
-                  <h1 className="text-3xl font-bold uppercase border-b-2 border-black mb-4 pb-2">Relatório de Atividade</h1>
-                  <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
-                      <div><strong>Atleta:</strong> {currentUser.name}</div>
-                      <div><strong>Data:</strong> {new Date(selectedActivity.date).toLocaleDateString()}</div>
-                      <div><strong>Distância:</strong> {selectedActivity.distanceKm.toFixed(2)} km</div>
-                      <div><strong>Tempo:</strong> {selectedActivity.durationMin} min</div>
-                      <div><strong>Pace:</strong> {selectedActivity.pace}</div>
-                      <div><strong>Calorias:</strong> {selectedActivity.calories || '-'} kcal</div>
-                  </div>
-                  <div className="mb-6">
-                      <h3 className="font-bold mb-2">Notas:</h3>
-                      <p className="italic border-l-4 border-gray-300 pl-3">{selectedActivity.notes || "Sem notas."}</p>
-                  </div>
-                  <div className="text-center text-xs text-gray-500 mt-10 border-t pt-4">
-                      Gerado por Filhos do Vento App
-                  </div>
-              </div>
-
-              {/* ON-SCREEN VIEW (Dark Mode UI) */}
-              <div className="print:hidden sticky top-0 z-50 flex justify-between items-center p-4 bg-gray-900/80 backdrop-blur-md border-b border-gray-800">
+              {/* HEADER CONTROLS (Hidden on Print) */}
+              <div className="sticky top-0 z-50 flex justify-between items-center p-4 bg-gray-900/80 backdrop-blur-md border-b border-gray-800 print:hidden">
                   <div className="flex items-center gap-4">
                       <button onClick={() => setSelectedActivity(null)} className="p-2 rounded-full hover:bg-gray-800 text-white transition-colors">
                           <X size={24} />
@@ -135,7 +101,7 @@ export const ActivityHistory: React.FC<ActivityHistoryProps> = ({ currentUser, i
                           <Share2 size={16} /> Studio
                       </button>
                       <button 
-                        onClick={() => window.print()}
+                        onClick={handlePrintDossier}
                         className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-2"
                       >
                           <Printer size={16} /> PDF / Print
@@ -149,36 +115,39 @@ export const ActivityHistory: React.FC<ActivityHistoryProps> = ({ currentUser, i
                   </div>
               </div>
 
-              <div className="flex-1 p-4 md:p-8 max-w-4xl mx-auto w-full print:hidden">
+              {/* PRINTABLE CONTENT */}
+              <div className="flex-1 p-4 md:p-8 max-w-4xl mx-auto w-full print:p-0 print:max-w-none print:bg-white print:text-black">
+                  
                   {/* Header Section */}
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-gray-800 pb-6 mb-6">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-gray-800 print:border-black pb-6 mb-6">
                       <div>
-                          <div className="text-amber-500 text-xs font-bold uppercase tracking-[0.3em] mb-2">Relatório Tático</div>
-                          <h1 className="text-5xl md:text-7xl font-black text-white italic tracking-tighter leading-none font-teko uppercase">
+                          <div className="text-amber-500 print:text-black text-xs font-bold uppercase tracking-[0.3em] mb-2">Relatório Tático</div>
+                          <h1 className="text-5xl md:text-7xl font-black text-white print:text-black italic tracking-tighter leading-none font-teko uppercase">
                               {selectedActivity.mode === 'run' ? 'Corrida' : selectedActivity.mode} <br/>
-                              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-orange-600">
+                              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-orange-600 print:text-black print:bg-none">
                                   {selectedActivity.feeling === 'great' ? 'Dominada' : 'Executada'}
                               </span>
                           </h1>
                       </div>
                       <div className="text-right mt-4 md:mt-0">
-                          <div className="text-xl font-bold text-white font-mono">
+                          <div className="text-xl font-bold text-white print:text-black font-mono">
                               {new Date(selectedActivity.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
                           </div>
-                          <div className="text-sm text-gray-500 font-bold uppercase tracking-wide flex items-center justify-end gap-1">
+                          <div className="text-sm text-gray-500 print:text-gray-600 font-bold uppercase tracking-wide flex items-center justify-end gap-1">
                               <MapPin size={14} /> Rio de Janeiro
                           </div>
                       </div>
                   </div>
 
-                  {/* Map Preview (Only visible on Screen) */}
+                  {/* Map Preview */}
                   {selectedActivity.route && selectedActivity.route.length > 0 ? (
-                      <div className="h-64 md:h-96 w-full bg-gray-900 rounded-3xl overflow-hidden border border-gray-800 mb-8 relative">
+                      <div className="h-64 md:h-96 w-full bg-gray-900 rounded-3xl overflow-hidden border border-gray-800 print:border-black mb-8 relative print:h-[400px] print:bg-gray-100">
                           <LiveMap route={selectedActivity.route} isPaused={true} polylineColor="#f59e0b" />
-                          <div className="absolute inset-0 pointer-events-none border-[10px] border-black/10"></div>
-                          <div className="absolute bottom-4 left-4 bg-black/80 backdrop-blur px-4 py-2 rounded-xl border border-white/10">
-                              <span className="text-[10px] text-gray-400 uppercase font-bold">GPS Track</span>
-                              <div className="text-white font-mono text-xs">{selectedActivity.route.length} Pontos</div>
+                          <div className="absolute inset-0 pointer-events-none border-[10px] border-black/10 print:border-none"></div>
+                          {/* Overlay stats on map for aesthetic */}
+                          <div className="absolute bottom-4 left-4 bg-black/80 print:bg-white/90 backdrop-blur px-4 py-2 rounded-xl border border-white/10 print:border-black">
+                              <span className="text-[10px] text-gray-400 print:text-gray-600 uppercase font-bold">GPS Track</span>
+                              <div className="text-white print:text-black font-mono text-xs">{selectedActivity.route.length} Pontos</div>
                           </div>
                       </div>
                   ) : (
@@ -189,56 +158,60 @@ export const ActivityHistory: React.FC<ActivityHistoryProps> = ({ currentUser, i
 
                   {/* Primary Metrics Grid */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                      <div className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 text-center">
-                          <div className="flex justify-center text-amber-500 mb-2"><ActivityIcon size={24} /></div>
-                          <div className="text-4xl md:text-5xl font-black text-white font-teko">{selectedActivity.distanceKm.toFixed(2)}</div>
-                          <div className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Quilômetros</div>
+                      <div className="bg-gray-900/50 print:bg-gray-100 p-6 rounded-2xl border border-gray-800 print:border-gray-300 text-center">
+                          <div className="flex justify-center text-amber-500 print:text-black mb-2"><ActivityIcon size={24} /></div>
+                          <div className="text-4xl md:text-5xl font-black text-white print:text-black font-teko">{selectedActivity.distanceKm.toFixed(2)}</div>
+                          <div className="text-[10px] text-gray-500 print:text-gray-600 uppercase font-bold tracking-widest">Quilômetros</div>
                       </div>
-                      <div className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 text-center">
-                          <div className="flex justify-center text-blue-500 mb-2"><Clock size={24} /></div>
-                          <div className="text-4xl md:text-5xl font-black text-white font-teko">{selectedActivity.durationMin}'</div>
-                          <div className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Tempo Total</div>
+                      <div className="bg-gray-900/50 print:bg-gray-100 p-6 rounded-2xl border border-gray-800 print:border-gray-300 text-center">
+                          <div className="flex justify-center text-blue-500 print:text-black mb-2"><Clock size={24} /></div>
+                          <div className="text-4xl md:text-5xl font-black text-white print:text-black font-teko">{selectedActivity.durationMin}'</div>
+                          <div className="text-[10px] text-gray-500 print:text-gray-600 uppercase font-bold tracking-widest">Tempo Total</div>
                       </div>
-                      <div className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 text-center">
-                          <div className="flex justify-center text-green-500 mb-2"><ActivityIcon size={24} className="transform rotate-90" /></div>
-                          <div className="text-4xl md:text-5xl font-black text-white font-teko">{selectedActivity.pace}</div>
-                          <div className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Pace Médio</div>
+                      <div className="bg-gray-900/50 print:bg-gray-100 p-6 rounded-2xl border border-gray-800 print:border-gray-300 text-center">
+                          <div className="flex justify-center text-green-500 print:text-black mb-2"><ActivityIcon size={24} className="transform rotate-90" /></div>
+                          <div className="text-4xl md:text-5xl font-black text-white print:text-black font-teko">{selectedActivity.pace}</div>
+                          <div className="text-[10px] text-gray-500 print:text-gray-600 uppercase font-bold tracking-widest">Pace Médio</div>
                       </div>
-                      <div className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 text-center">
-                          <div className="flex justify-center text-orange-500 mb-2"><Flame size={24} /></div>
-                          <div className="text-4xl md:text-5xl font-black text-white font-teko">{selectedActivity.calories || '-'}</div>
-                          <div className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Calorias</div>
+                      <div className="bg-gray-900/50 print:bg-gray-100 p-6 rounded-2xl border border-gray-800 print:border-gray-300 text-center">
+                          <div className="flex justify-center text-orange-500 print:text-black mb-2"><Flame size={24} /></div>
+                          <div className="text-4xl md:text-5xl font-black text-white print:text-black font-teko">{selectedActivity.calories || '-'}</div>
+                          <div className="text-[10px] text-gray-500 print:text-gray-600 uppercase font-bold tracking-widest">Calorias</div>
                       </div>
                   </div>
 
                   {/* Detailed Splits & Notes */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                       <div className="md:col-span-2">
-                          <h3 className="text-white font-bold uppercase tracking-wider text-sm mb-4 border-b border-gray-800 pb-2">Notas de Campo</h3>
-                          <div className="bg-gray-900/30 p-6 rounded-2xl border border-gray-800 min-h-[100px]">
-                              <p className="text-gray-300 italic leading-relaxed font-medium">
+                          <h3 className="text-white print:text-black font-bold uppercase tracking-wider text-sm mb-4 border-b border-gray-800 print:border-gray-300 pb-2">Notas de Campo</h3>
+                          <div className="bg-gray-900/30 print:bg-transparent p-6 rounded-2xl border border-gray-800 print:border-gray-300 min-h-[100px]">
+                              <p className="text-gray-300 print:text-black italic leading-relaxed font-medium">
                                   "{selectedActivity.notes || 'Nenhuma observação registrada pelo atleta.'}"
                               </p>
                           </div>
                       </div>
                       
                       <div>
-                          <h3 className="text-white font-bold uppercase tracking-wider text-sm mb-4 border-b border-gray-800 pb-2">Dados Ambientais</h3>
+                          <h3 className="text-white print:text-black font-bold uppercase tracking-wider text-sm mb-4 border-b border-gray-800 print:border-gray-300 pb-2">Dados Ambientais</h3>
                           <div className="space-y-3">
                               <div className="flex justify-between items-center">
-                                  <span className="text-gray-500 text-xs font-bold uppercase">Sensação</span>
-                                  <span className="text-white font-bold capitalize">{selectedActivity.feeling}</span>
+                                  <span className="text-gray-500 print:text-gray-600 text-xs font-bold uppercase">Sensação</span>
+                                  <span className="text-white print:text-black font-bold capitalize">{selectedActivity.feeling}</span>
                               </div>
                               <div className="flex justify-between items-center">
-                                  <span className="text-gray-500 text-xs font-bold uppercase">Elevação</span>
-                                  <span className="text-white font-bold flex items-center gap-1"><Mountain size={14}/> {selectedActivity.elevationGain || 0}m</span>
+                                  <span className="text-gray-500 print:text-gray-600 text-xs font-bold uppercase">Elevação</span>
+                                  <span className="text-white print:text-black font-bold flex items-center gap-1"><Mountain size={14}/> {selectedActivity.elevationGain || 0}m</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                  <span className="text-gray-500 print:text-gray-600 text-xs font-bold uppercase">Veloc. Máx</span>
+                                  <span className="text-white print:text-black font-bold">-- km/h</span>
                               </div>
                           </div>
                       </div>
                   </div>
 
                   {/* Footer */}
-                  <div className="mt-12 pt-6 border-t border-gray-800 flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-widest font-bold">
+                  <div className="mt-12 pt-6 border-t border-gray-800 print:border-gray-300 flex justify-between items-center text-[10px] text-gray-500 print:text-gray-600 uppercase tracking-widest font-bold">
                       <span>Filhos do Vento Running Team</span>
                       <span>ID: {selectedActivity.id}</span>
                   </div>
@@ -260,73 +233,24 @@ export const ActivityHistory: React.FC<ActivityHistoryProps> = ({ currentUser, i
 
   return (
     <div className="space-y-8 pb-24 animate-fade-in">
-      
-      {/* PRINT-ONLY BULK VIEW */}
-      <div className="hidden print:block bg-white text-black p-8">
-          <div className="flex justify-between items-center border-b-2 border-black pb-4 mb-6">
-              <h1 className="text-2xl font-black uppercase">Registro de Voo - Histórico</h1>
-              <div className="text-right text-sm">
-                  <p><strong>Atleta:</strong> {currentUser.name}</p>
-                  <p><strong>Gerado em:</strong> {new Date().toLocaleDateString()}</p>
-              </div>
-          </div>
-          
-          <table className="w-full text-sm text-left">
-              <thead>
-                  <tr className="border-b border-black">
-                      <th className="py-2">Data</th>
-                      <th className="py-2">Distância</th>
-                      <th className="py-2">Tempo</th>
-                      <th className="py-2">Pace</th>
-                      <th className="py-2">Notas</th>
-                  </tr>
-              </thead>
-              <tbody>
-                  {activities.map(activity => (
-                      <tr key={activity.id} className="border-b border-gray-200">
-                          <td className="py-2">{new Date(activity.date).toLocaleDateString()}</td>
-                          <td className="py-2 font-bold">{activity.distanceKm.toFixed(2)} km</td>
-                          <td className="py-2">{activity.durationMin} min</td>
-                          <td className="py-2 font-mono">{activity.pace}</td>
-                          <td className="py-2 italic text-xs truncate max-w-[200px]">{activity.notes}</td>
-                      </tr>
-                  ))}
-              </tbody>
-          </table>
-      </div>
-
-      {/* ON-SCREEN INTERFACE */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 print:hidden">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Registro de Voo</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Histórico de Atividades</h2>
           <p className="text-gray-500 dark:text-gray-400 text-sm">Seu diário de bordo completo.</p>
         </div>
-        <div className="flex flex-col md:flex-row gap-2">
-            <div className="flex gap-2 bg-white dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700">
-                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-transparent text-xs p-1 outline-none dark:text-white" />
-                <span className="text-gray-400">-</span>
-                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-transparent text-xs p-1 outline-none dark:text-white" />
-            </div>
-            <button 
-              onClick={handlePrintList}
-              className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shadow-sm border border-gray-200 dark:border-gray-700"
-            >
-              <Printer size={16} /> Relatório PDF
-            </button>
-            <button 
-              onClick={handleExportAllData}
-              className="flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity shadow-lg"
-            >
-              <Database size={16} /> JSON
-            </button>
-        </div>
+        <button 
+          onClick={handleExportAllData}
+          className="flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity shadow-lg"
+        >
+          <Database size={16} /> Backup Completo (JSON)
+        </button>
       </div>
 
-      <div className="space-y-4 print:hidden">
+      <div className="space-y-4">
         {activities.length === 0 && (
           <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 border-dashed">
             <FileText size={48} className="mx-auto text-gray-300 mb-4" />
-            <p className="text-gray-500">Nenhuma atividade encontrada no período.</p>
+            <p className="text-gray-500">Nenhuma atividade registrada ainda.</p>
           </div>
         )}
 
@@ -336,6 +260,7 @@ export const ActivityHistory: React.FC<ActivityHistoryProps> = ({ currentUser, i
             onClick={() => setSelectedActivity(activity)}
             className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer group relative"
           >
+            {/* Delete Button (Visible on Hover) */}
             <button 
                 onClick={(e) => handleDelete(e, activity.id)}
                 className="absolute top-4 right-4 z-20 bg-white/90 dark:bg-black/50 p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 transition-all opacity-0 group-hover:opacity-100"
@@ -344,6 +269,7 @@ export const ActivityHistory: React.FC<ActivityHistoryProps> = ({ currentUser, i
                 <Trash2 size={16} />
             </button>
 
+            {/* Map Preview Header (if route exists) */}
             {activity.route && activity.route.length > 0 && (
               <div className="h-32 w-full bg-gray-100 dark:bg-gray-900 relative pointer-events-none">
                  <LiveMap route={activity.route} isPaused={true} />
@@ -379,15 +305,15 @@ export const ActivityHistory: React.FC<ActivityHistoryProps> = ({ currentUser, i
               <div className="grid grid-cols-3 gap-4 border-t border-gray-100 dark:border-gray-700 pt-4">
                 <div>
                   <p className="text-[10px] text-gray-400 uppercase font-bold">Distância</p>
-                  <p className="text-2xl font-black text-gray-900 dark:text-white font-mono tracking-tighter">{activity.distanceKm.toFixed(2)} <span className="text-sm text-gray-500 font-sans">km</span></p>
+                  <p className="text-2xl font-black text-gray-900 dark:text-white font-teko">{activity.distanceKm.toFixed(2)} <span className="text-sm text-gray-500 font-sans">km</span></p>
                 </div>
                 <div>
                   <p className="text-[10px] text-gray-400 uppercase font-bold">Tempo</p>
-                  <p className="text-2xl font-black text-gray-900 dark:text-white font-mono tracking-tighter">{activity.durationMin} <span className="text-sm text-gray-500 font-sans">min</span></p>
+                  <p className="text-2xl font-black text-gray-900 dark:text-white font-teko">{activity.durationMin} <span className="text-sm text-gray-500 font-sans">min</span></p>
                 </div>
                 <div>
                   <p className="text-[10px] text-gray-400 uppercase font-bold">Pace</p>
-                  <p className="text-2xl font-black text-gray-900 dark:text-white font-mono tracking-tighter">{activity.pace}</p>
+                  <p className="text-2xl font-black text-gray-900 dark:text-white font-teko">{activity.pace}</p>
                 </div>
               </div>
             </div>
