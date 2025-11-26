@@ -138,6 +138,7 @@ export interface Challenge {
   description: string;
   targetKm: number;
   participants: string[]; // IDs of members
+  startDate: string; // Data de início para calcular progresso
   endDate: string;
 }
 

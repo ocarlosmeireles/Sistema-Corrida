@@ -1,9 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
-import { Member, Season, RaceEvent, Story, SoundType, Activity } from '../types';
+import { Member, Season, RaceEvent, Story, SoundType, Activity, Challenge } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, AreaChart, Area } from 'recharts';
 import { ActivityLogger } from './ActivityLogger';
-import { Sun, CloudRain, Wind, Rocket, Bot, Crown, Heart, Zap, TrendingUp, Plus, ChevronRight, MapPin, Footprints, Calendar, Activity as ActivityIcon, Printer, FileText, Timer, Info, Award } from 'lucide-react';
+import { Sun, CloudRain, Wind, Rocket, Bot, Crown, Heart, Zap, TrendingUp, Plus, ChevronRight, MapPin, Footprints, Calendar, Activity as ActivityIcon, Printer, FileText, Timer, Info, Award, Clock, Flag } from 'lucide-react';
 import { SocialShareModal } from './SocialShareModal';
 
 interface DashboardProps {
@@ -17,6 +17,7 @@ interface DashboardProps {
   onNavigate?: (tab: string) => void;
   playSound?: (type: SoundType) => void;
   onUpgradeRequest?: () => void;
+  challenges?: Challenge[];
 }
 
 // --- HELPER FUNCTIONS ---
@@ -99,7 +100,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onUpdateUser, 
   onNavigate,
   playSound,
-  onUpgradeRequest
+  onUpgradeRequest,
+  challenges = []
 }) => {
   const [weather, setWeather] = useState<any>(null);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
@@ -129,24 +131,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
         paceSeconds: paceToSeconds(a.pace),
         distance: a.distanceKm
     }))
-    .filter(d => d.paceSeconds > 0 && d.distance > 1); // Filter weird data and very short runs
+    .filter(d => d.paceSeconds > 0 && d.distance > 1); 
+
+  // Active Challenge Logic
+  const activeChallenge = challenges.find(c => c.participants.includes(currentUser.id));
+  let challengeProgress = 0;
+  let challengeCurrent = 0;
+  
+  if (activeChallenge) {
+      const startDate = new Date(activeChallenge.startDate || '2023-01-01');
+      challengeCurrent = currentUser.activities
+        .filter(a => new Date(a.date) >= startDate)
+        .reduce((acc, curr) => acc + curr.distanceKm, 0);
+      challengeProgress = Math.min(100, (challengeCurrent / activeChallenge.targetKm) * 100);
+  }
 
   // Race Predictions Logic (Riegel Formula)
-  // T2 = T1 * (D2 / D1)^1.06
   const calculatePredictions = () => {
-      if (currentUser.activities.length === 0) return [];
-      
-      // Find best recent effort (longest run with best pace)
+      if (currentUser.activities.length === 0) return null;
       const bestRun = currentUser.activities
-        .filter(a => a.distanceKm >= 3) // Minimum 3km to predict
-        .sort((a, b) => {
-            // Sort by highest efficiency: (Distance / PaceSeconds)
-            // Or simpler: Sort by distance desc, then pace asc.
-            // Let's pick the longest run that has a decent pace.
-            return b.distanceKm - a.distanceKm; 
-        })[0];
+        .filter(a => a.distanceKm >= 1) 
+        .sort((a, b) => b.distanceKm - a.distanceKm)[0];
 
-      if (!bestRun) return [];
+      if (!bestRun) return null;
 
       const d1 = bestRun.distanceKm;
       const t1 = bestRun.durationMin * 60; // seconds
@@ -217,7 +224,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handlePrintReport = () => {
-      // Ensure the print dialog sees the print-only content
       window.print();
   };
 
@@ -267,6 +273,48 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
         </button>
+      );
+  };
+
+  // --- ACTIVE CHALLENGE CARD ---
+  const ChallengeCard = () => {
+      if (!activeChallenge) return null;
+      
+      const remaining = Math.max(0, activeChallenge.targetKm - challengeCurrent);
+
+      return (
+          <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 relative overflow-hidden shadow-lg border border-red-500/30 col-span-1 md:col-span-3 lg:col-span-4 group">
+              <div className="flex justify-between items-end mb-2">
+                  <div className="flex items-center gap-3">
+                      <div className="bg-red-500 p-2 rounded-xl text-white shadow-lg shadow-red-500/20">
+                          <Flag size={20} />
+                      </div>
+                      <div>
+                          <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Missão Ativa</span>
+                          <h3 className="text-lg font-bold text-gray-900 dark:text-white">{activeChallenge.title}</h3>
+                      </div>
+                  </div>
+                  <div className="text-right">
+                      <span className="text-2xl font-black text-gray-900 dark:text-white">{challengeCurrent.toFixed(1)}</span>
+                      <span className="text-xs text-gray-500 font-bold ml-1">/ {activeChallenge.targetKm} km</span>
+                  </div>
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div 
+                      className="h-full bg-gradient-to-r from-red-500 to-orange-500 transition-all duration-1000 relative"
+                      style={{ width: `${challengeProgress}%` }}
+                  >
+                      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
+                  </div>
+              </div>
+              
+              <div className="flex justify-between mt-2 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  <span>{challengeProgress.toFixed(0)}% Completo</span>
+                  <span>Faltam {remaining.toFixed(1)} km</span>
+              </div>
+          </div>
       );
   };
 
@@ -377,53 +425,56 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const PredictionsCard = () => (
       <div className="bg-[#1a1a1a] text-white rounded-3xl p-6 relative overflow-hidden shadow-lg col-span-1 border border-gray-800 flex flex-col justify-between group">
+          {/* Background & Effects */}
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
+          <div className="absolute -bottom-20 -right-20 w-56 h-56 bg-orange-600/10 rounded-full blur-[60px] pointer-events-none"></div>
+
           {/* Top Header */}
-          <div className="flex items-start justify-between mb-4 relative z-10">
+          <div className="flex items-start justify-between mb-6 relative z-10">
               <div className="flex items-center gap-3">
-                  <div className="bg-gradient-to-br from-orange-500 to-red-600 p-2 rounded-lg shadow-lg shadow-orange-500/20">
+                  <div className="bg-gradient-to-br from-orange-500 to-red-600 p-2 rounded-xl shadow-lg shadow-orange-500/20">
                       <Award size={20} className="text-white" />
                   </div>
                   <div>
-                      <h3 className="font-bold text-lg text-white leading-tight">Previsões de<br/>desempenho</h3>
-                  </div>
-              </div>
-              {/* Info Tooltip */}
-              <div className="group/info relative">
-                  <Info size={16} className="text-gray-500 hover:text-orange-500 cursor-pointer transition-colors" />
-                  <div className="absolute right-0 w-48 p-3 bg-gray-800 text-xs text-gray-300 rounded-xl shadow-xl border border-gray-700 opacity-0 group-hover/info:opacity-100 transition-opacity pointer-events-none group-hover/info:pointer-events-auto z-50 -bottom-2 translate-y-full">
-                      Baseado na <strong>Fórmula de Riegel</strong> (T2 = T1 × (D2/D1)^1.06) usando seu melhor desempenho recente.
+                      <h3 className="font-black text-lg text-white leading-tight uppercase tracking-tight">Previsões de<br/>Desempenho</h3>
                   </div>
               </div>
           </div>
 
           {/* Predictions Grid */}
-          <div className="grid grid-cols-2 gap-4 relative z-10 flex-1">
-              {predictions.length > 0 ? predictions.map((pred, i) => (
-                  <div key={i} className="flex flex-col items-center justify-center text-center">
-                      {/* Starburst Badge */}
-                      <div className="relative w-14 h-14 flex items-center justify-center mb-1 group-hover:scale-105 transition-transform duration-500">
-                          <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full text-orange-500 drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth="3">
-                              {/* Simple Starburst Path */}
-                              <path d="M50 2 L58 28 L85 28 L65 48 L75 75 L50 60 L25 75 L35 48 L15 28 L42 28 Z" strokeLinejoin="round" className="animate-pulse" style={{animationDuration: '3s'}} />
+          <div className="grid grid-cols-2 gap-x-4 gap-y-6 relative z-10 flex-1">
+              {predictions ? predictions.map((pred, i) => (
+                  <div key={i} className="flex flex-col items-center justify-center text-center group/item">
+                      {/* Badge */}
+                      <div className="relative w-12 h-12 flex items-center justify-center mb-2 group-hover/item:scale-110 transition-transform duration-300">
+                          {/* Seal Shape SVG */}
+                          <svg viewBox="0 0 24 24" className="absolute inset-0 w-full h-full text-orange-600" fill="currentColor">
+                              <path d="M12 0l2.5 7.5h7.5l-6 4.5 2.5 7.5-6-4.5-6 4.5 2.5-7.5-6-4.5h7.5z" transform="scale(0.9) translate(1.2, 1.2)" />
                           </svg>
-                          <div className="relative z-10 flex flex-col items-center leading-none pt-1">
-                              <span className="text-lg font-black text-orange-500">{pred.dist}</span>
-                              <span className="text-[8px] font-bold text-orange-400 uppercase">{pred.unit}</span>
+                          <div className="relative z-10 flex flex-col items-center leading-none mt-0.5">
+                              <span className="text-sm font-black text-white drop-shadow-sm">{pred.dist}</span>
+                              <span className="text-[6px] font-bold text-orange-100 uppercase">{pred.unit}</span>
                           </div>
                       </div>
                       
-                      <div className="text-2xl font-black text-white tracking-tight">{pred.time}</div>
-                      <div className="text-[10px] text-gray-400 font-medium">{pred.pace} /km</div>
+                      <div className="text-2xl font-black text-white tracking-tighter leading-none">{pred.time}</div>
+                      <div className="text-[10px] text-gray-400 font-bold mt-0.5">{pred.pace} /km</div>
                   </div>
               )) : (
-                  <div className="col-span-2 text-center text-gray-500 text-xs py-10 px-4">
-                      Registre mais atividades para desbloquear previsões precisas.
+                  <div className="col-span-2 flex flex-col items-center justify-center text-center text-gray-500 py-4">
+                      <Clock size={32} className="mb-2 opacity-30" />
+                      <p className="text-xs max-w-[150px]">Registre uma atividade de pelo menos 1km para desbloquear.</p>
                   </div>
               )}
           </div>
           
-          {/* Background Glow */}
-          <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-orange-600/20 rounded-full blur-[50px] pointer-events-none"></div>
+          {/* Footer Info */}
+          <div className="mt-6 pt-4 border-t border-gray-800 relative z-10">
+              <div className="flex items-start gap-2 text-[10px] text-gray-500 leading-tight">
+                  <Info size={12} className="flex-shrink-0 mt-0.5 text-orange-500" />
+                  <p>Estimativas baseadas no seu melhor treino recente usando a <strong>Fórmula de Riegel</strong>.</p>
+              </div>
+          </div>
       </div>
   );
 
@@ -636,7 +687,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     />
                 </div>
 
-                {/* 4. STATS & NEXT RACE */}
+                {/* 4. CHALLENGE CARD (NEW) */}
+                <ChallengeCard />
+
+                {/* 5. STATS & NEXT RACE */}
                 <StatCard />
                 
                 <div className="col-span-1 md:col-span-2 lg:col-span-1 flex flex-col gap-4">
@@ -663,11 +717,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                {/* 5. NEW FEATURES: Progress & Predictions */}
+                {/* 6. NEW FEATURES: Progress & Predictions */}
                 <ProgressCard />
                 <PredictionsCard />
 
-                {/* 6. UPSELL (If Basic) */}
+                {/* 7. UPSELL (If Basic) */}
                 {!isPro && <UpsellCard />}
 
             </div>

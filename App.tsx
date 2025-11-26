@@ -17,11 +17,17 @@ import { AdminPanel } from './components/AdminPanel';
 import { Login } from './components/Login';
 import { ProLounge } from './components/ProLounge';
 import { ActivityHistory } from './components/ActivityHistory';
-import { Member, WindRank, RaceEvent, Activity, Season, Sponsor, Story, PlanType, Notification, TrainingPlan, PrivateMessage, SoundType } from './types';
+import { Member, WindRank, RaceEvent, Activity, Season, Sponsor, Story, PlanType, Notification, TrainingPlan, PrivateMessage, SoundType, Challenge } from './types';
 
 // Firebase Imports
 import { db, seedDatabase, isFirebaseInitialized, MOCK_MEMBERS, MOCK_EVENTS, MOCK_STORIES, INITIAL_SPONSORS, MOCK_SEASON } from './services/firebase';
 import { collection, onSnapshot, doc, updateDoc, addDoc, setDoc, query, orderBy } from 'firebase/firestore';
+
+// MOCK CHALLENGES (Initial)
+const INITIAL_CHALLENGES: Challenge[] = [
+    { id: 'c1', creatorId: '1', creatorName: 'Carlos Admin', title: 'Desafio 100km em 30 Dias', description: 'Acumule 100km de corrida até o final do mês. Quem topa?', targetKm: 100, participants: ['1', '2', '3'], startDate: '2023-10-01', endDate: '2025-12-31' },
+    { id: 'c2', creatorId: '2', creatorName: 'Sarah Ventania', title: 'Fim de Semana 21k', description: 'Correr uma meia maratona neste fim de semana.', targetKm: 21, participants: ['2', '3'], startDate: '2023-10-27', endDate: '2025-11-30' }
+];
 
 const App: React.FC = () => {
   // Auth State
@@ -33,6 +39,7 @@ const App: React.FC = () => {
   const [members, setMembers] = useState<Member[]>(MOCK_MEMBERS);
   const [events, setEvents] = useState<RaceEvent[]>(MOCK_EVENTS);
   const [stories, setStories] = useState<Story[]>(MOCK_STORIES);
+  const [challenges, setChallenges] = useState<Challenge[]>(INITIAL_CHALLENGES);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [viewingMemberId, setViewingMemberId] = useState<string | null>(null);
@@ -730,6 +737,28 @@ const App: React.FC = () => {
       setActiveTab('dashboard');
   };
 
+  const handleDeleteActivity = async (activityId: string) => {
+      const updatedActivities = currentUser.activities.filter(a => a.id !== activityId);
+      // Recalculate total distance
+      const newTotalDist = updatedActivities.reduce((acc, curr) => acc + curr.distanceKm, 0);
+      
+      const updatedUser = {
+          ...currentUser,
+          activities: updatedActivities,
+          totalDistance: newTotalDist
+      };
+
+      try {
+          if (isFirebaseInitialized) {
+              await updateDoc(doc(db, 'members', currentUser.id), updatedUser);
+          }
+          setMembers(prev => prev.map(m => m.id === currentUser.id ? updatedUser : m));
+          playUISound('success');
+      } catch (e) {
+          setMembers(prev => prev.map(m => m.id === currentUser.id ? updatedUser : m));
+      }
+  };
+
   const handleAddMember = async (name: string, plan: PlanType, gender?: 'male' | 'female') => {
     let proExpiresAt = undefined;
     if (plan === 'pro') {
@@ -926,6 +955,23 @@ const App: React.FC = () => {
     }
   };
 
+  // Challenge Functions
+  const handleCreateChallenge = (challenge: Omit<Challenge, 'id'>) => {
+      const newChallenge = { ...challenge, id: Date.now().toString() };
+      setChallenges(prev => [...prev, newChallenge]);
+      playUISound('success');
+  };
+
+  const handleJoinChallenge = (challengeId: string) => {
+      setChallenges(prev => prev.map(c => {
+          if(c.id === challengeId && !c.participants.includes(currentUser.id)) {
+              return { ...c, participants: [...c.participants, currentUser.id] };
+          }
+          return c;
+      }));
+      playUISound('success');
+  };
+
   const renderContent = () => {
     if (!currentUser || !currentUser.id) return <div className="text-center p-10 text-white">Carregando QG...</div>;
 
@@ -956,6 +1002,7 @@ const App: React.FC = () => {
                 events={events}
                 teamMembers={members}
                 latestStory={stories[0]}
+                challenges={challenges}
                 onUpdateUser={handleUpdateUser} 
                 isDark={theme === 'dark'} 
                 onNavigate={(tab) => handleTabChange(tab)}
@@ -987,7 +1034,13 @@ const App: React.FC = () => {
             />
         );
       case 'history':
-        return <ActivityHistory currentUser={currentUser} isDark={theme === 'dark'} />;
+        return (
+            <ActivityHistory 
+                currentUser={currentUser} 
+                isDark={theme === 'dark'} 
+                onDeleteActivity={handleDeleteActivity}
+            />
+        );
       case 'season':
         return <Seasons season={currentSeason} members={members} onViewLeaderboard={() => setActiveTab('leaderboard')} />;
       case 'plans':
@@ -1005,6 +1058,7 @@ const App: React.FC = () => {
                 events={events}
                 teamMembers={members}
                 latestStory={stories[0]}
+                challenges={challenges}
                 onUpdateUser={handleUpdateUser} 
                 isDark={theme === 'dark'} 
                 onNavigate={(tab) => handleTabChange(tab)}
@@ -1030,6 +1084,9 @@ const App: React.FC = () => {
                 onSendMessage={handleSendMessage}
                 initialChatTargetId={targetChatUserId}
                 onNotifyMember={handleNotifyMember}
+                challenges={challenges}
+                onCreateChallenge={handleCreateChallenge}
+                onJoinChallenge={handleJoinChallenge}
             />
         );
       case 'team':
@@ -1069,6 +1126,7 @@ const App: React.FC = () => {
                 events={events}
                 teamMembers={members}
                 latestStory={stories[0]}
+                challenges={challenges}
                 onUpdateUser={handleUpdateUser} 
                 isDark={theme === 'dark'} 
                 onNavigate={(tab) => handleTabChange(tab)}

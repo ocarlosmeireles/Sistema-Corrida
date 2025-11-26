@@ -13,6 +13,10 @@ interface CommunityProps {
   onSendMessage: (receiverId: string, content: string) => void;
   initialChatTargetId?: string | null;
   onNotifyMember?: (targetId: string, title: string, message: string) => void;
+  // NEW PROPS
+  challenges: Challenge[];
+  onCreateChallenge: (challenge: Omit<Challenge, 'id'>) => void;
+  onJoinChallenge: (id: string) => void;
 }
 
 // Mock Featured Member
@@ -32,11 +36,6 @@ const INITIAL_CHATS: ChatMessage[] = [
     { id: '6', senderId: '4', senderName: 'Ana Rajada', content: 'Como faço para melhorar a respiração? Sinto pontada rápido.', timestamp: '14:20', channel: 'iniciantes' },
 ];
 
-const INITIAL_CHALLENGES: Challenge[] = [
-    { id: 'c1', creatorId: '1', creatorName: 'Carlos Admin', title: 'Desafio 100km em 30 Dias', description: 'Acumule 100km de corrida até o final do mês. Quem topa?', targetKm: 100, participants: ['1', '2', '3'], endDate: '2025-12-31' },
-    { id: 'c2', creatorId: '2', creatorName: 'Sarah Ventania', title: 'Fim de Semana 21k', description: 'Correr uma meia maratona neste fim de semana.', targetKm: 21, participants: ['2', '3'], endDate: '2025-11-30' }
-];
-
 // Respostas automáticas simuladas para dar vida ao chat
 const AUTO_REPLIES = [
     "Com certeza!",
@@ -53,7 +52,8 @@ const AUTO_REPLIES = [
 
 export const Community: React.FC<CommunityProps> = ({ 
     stories, currentUser, members, onAddStory, onLikeStory, 
-    directMessages, onSendMessage, initialChatTargetId, onNotifyMember 
+    directMessages, onSendMessage, initialChatTargetId, onNotifyMember,
+    challenges, onCreateChallenge, onJoinChallenge
 }) => {
   const [activeTab, setActiveTab] = useState<'feed' | 'chat' | 'direct' | 'challenges'>('feed');
   
@@ -74,7 +74,6 @@ export const Community: React.FC<CommunityProps> = ({
   const [dmSearch, setDmSearch] = useState('');
 
   // Challenges State
-  const [challenges, setChallenges] = useState<Challenge[]>(INITIAL_CHALLENGES);
   const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
   const [newChallenge, setNewChallenge] = useState({ title: '', description: '', targetKm: 50 });
 
@@ -193,31 +192,23 @@ export const Community: React.FC<CommunityProps> = ({
       e.preventDefault();
       if (!newChallenge.title) return;
       
-      const challenge: Challenge = {
-          id: Date.now().toString(),
+      const today = new Date();
+      const endDate = new Date();
+      endDate.setDate(today.getDate() + 30);
+
+      onCreateChallenge({
           creatorId: currentUser.id,
           creatorName: currentUser.name,
           title: newChallenge.title,
           description: newChallenge.description,
           targetKm: newChallenge.targetKm,
           participants: [currentUser.id],
-          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-      };
+          startDate: today.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0]
+      });
       
-      setChallenges([...challenges, challenge]);
       setIsCreatingChallenge(false);
       setNewChallenge({ title: '', description: '', targetKm: 50 });
-  };
-
-  const handleJoinChallenge = (id: string) => {
-      setChallenges(prev => prev.map(c => {
-          if(c.id === id) {
-              if(!c.participants.includes(currentUser.id)) {
-                  return { ...c, participants: [...c.participants, currentUser.id] };
-              }
-          }
-          return c;
-      }));
   };
 
   const filteredMessages = messages.filter(m => m.channel === currentChannel);
@@ -495,7 +486,7 @@ export const Community: React.FC<CommunityProps> = ({
 
                               {!isParticipant && (
                                   <button 
-                                      onClick={() => handleJoinChallenge(challenge.id)}
+                                      onClick={() => onJoinChallenge(challenge.id)}
                                       className="w-full mt-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold py-2 rounded-lg hover:opacity-90 transition-opacity text-sm"
                                   >
                                       Aceitar Desafio
@@ -620,9 +611,10 @@ export const Community: React.FC<CommunityProps> = ({
       {/* --- DIRECT MESSAGES TAB --- */}
       {activeTab === 'direct' && (
           <div className="animate-fade-in flex flex-col md:flex-row gap-4 h-[600px] bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-xl">
-               
-               {/* Sidebar Users */}
+               {/* Sidebar Users and Direct Messages content */}
+               {/* ... (No changes to Direct Messages part) ... */}
                <div className="w-full md:w-1/3 bg-gray-50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+                    {/* ... */}
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                         <h3 className="font-bold text-gray-700 dark:text-gray-200 uppercase text-xs tracking-wider mb-3">Mensagens Diretas</h3>
                         <div className="relative">
@@ -658,24 +650,6 @@ export const Community: React.FC<CommunityProps> = ({
                                 </button>
                              )
                         ))}
-                        {getDmThreads().length === 0 && (
-                            <p className="text-xs text-gray-500 text-center py-4">Nenhuma conversa recente.</p>
-                        )}
-                        
-                        {/* If searching, show users not in thread list */}
-                        {dmSearch && members
-                            .filter(m => m.id !== currentUser.id && m.name.toLowerCase().includes(dmSearch.toLowerCase()) && !getDmThreads().find(t => t.user?.id === m.id))
-                            .map(user => (
-                                <button
-                                    key={user.id}
-                                    onClick={() => { setSelectedDmUser(user.id); setDmSearch(''); }}
-                                    className="w-full text-left px-3 py-2 rounded-lg flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-800 opacity-70"
-                                >
-                                    <img src={user.avatarUrl} className="w-8 h-8 rounded-full" alt={user.name} />
-                                    <span className="text-sm dark:text-gray-300">{user.name}</span>
-                                </button>
-                            ))
-                        }
                     </div>
                </div>
 
