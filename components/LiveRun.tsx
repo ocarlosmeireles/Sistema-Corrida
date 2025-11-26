@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { Activity, RoutePoint, Notification, Member, WorkoutMode, SoundType } from '../types';
-import { Play, Pause, Square, Flag, CheckCircle, Zap, Wind, Mountain, Footprints, Cloud, Tornado, Lock, Unlock, Crosshair, Mic, Target, Award, Share2, Volume2, VolumeX, X, Image as ImageIcon, Download, Loader2, Music, ChevronUp, ChevronDown, Flame, Activity as ActivityIcon, Gauge, Feather, Signal, Maximize, Minimize, Megaphone, PenTool, Map as MapIcon, Layers, TrendingUp, ZoomIn, ZoomOut, Focus, Rocket, Timer, List } from 'lucide-react';
+import { Play, Pause, Square, Flag, CheckCircle, Zap, Wind, Mountain, Footprints, Cloud, Tornado, Lock, Unlock, Crosshair, Mic, Target, Award, Share2, Volume2, VolumeX, X, Image as ImageIcon, Download, Loader2, Music, ChevronUp, ChevronDown, Flame, Activity as ActivityIcon, Gauge, Feather, Signal, Maximize, Minimize, Megaphone, PenTool, Map as MapIcon, Layers, TrendingUp, ZoomIn, ZoomOut, Focus, Rocket, Timer, List, Star } from 'lucide-react';
 import * as L from 'leaflet';
 import { SocialShareModal } from './SocialShareModal';
 
@@ -320,6 +321,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   // Telemetry & Other States...
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [distance, setDistance] = useState(0);
+  const [sessionXP, setSessionXP] = useState(0); // Interactive XP Logic
   const [calories, setCalories] = useState(0);
   const [elevationGain, setElevationGain] = useState(0);
   const [currentPace, setCurrentPace] = useState(0); // Seconds per km
@@ -424,6 +426,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       setRunNotes(''); // Reset notes
       setPaceHistory([]); // Reset graph
       setSplits([]); // Reset splits
+      setSessionXP(0); // Reset XP
       lastKmTriggerRef.current = 0; // Reset triggers
       lastSplitTimeRef.current = 0;
 
@@ -486,6 +489,13 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                               const newTotalDistKm = (distance * 1000 + d) / 1000;
                               setDistance(newTotalDistKm);
                               
+                              // Calculate XP: 1 XP per 100m
+                              // distance is in km. 0.1 km = 1 XP.
+                              // 1 km = 10 XP.
+                              // newTotalDistKm * 10 gives XP.
+                              const newXP = Math.floor(newTotalDistKm * 10);
+                              setSessionXP(newXP);
+
                               // Calculate distance in current split
                               const kmReached = Math.floor(newTotalDistKm);
                               const distInCurrentSplit = newTotalDistKm - lastKmTriggerRef.current;
@@ -788,6 +798,17 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                   {!isMapMode && !isSplitsMode && (
                       <div className="flex flex-col gap-4 mb-6">
                           
+                          {/* GAMIFICATION BADGE (XP) */}
+                          <div className="flex justify-center mb-2">
+                              <div key={sessionXP} className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full px-6 py-2 flex items-center gap-2 shadow-[0_0_15px_rgba(124,58,237,0.5)] animate-bounce-slow border border-white/20 backdrop-blur-sm">
+                                  <Star size={16} className="text-yellow-300 fill-current animate-pulse" />
+                                  <span className="text-xl font-black text-white font-mono">{sessionXP} XP</span>
+                                  <span className="text-[10px] text-purple-200 uppercase font-bold tracking-wide ml-1 border-l border-purple-400/50 pl-2">
+                                      Próx: +100m
+                                  </span>
+                              </div>
+                          </div>
+
                           {/* Main Row: Distance & Time */}
                           <div className="grid grid-cols-1 gap-2 text-center">
                               <div>
