@@ -130,6 +130,17 @@ export interface Member {
   shoes: Shoe[]; 
 }
 
+export interface Challenge {
+  id: string;
+  creatorId: string;
+  creatorName: string;
+  title: string;
+  description: string;
+  targetKm: number;
+  participants: string[]; // IDs of members
+  endDate: string;
+}
+
 export interface TeamStats {
   totalKm: number;
   activeMembers: number;

@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { Activity, RoutePoint, Notification, Member, WorkoutMode, SoundType } from '../types';
-import { Play, Pause, Square, Flag, CheckCircle, Zap, Wind, Mountain, Footprints, Cloud, Tornado, Lock, Unlock, Crosshair, Mic, Target, Award, Share2, Volume2, VolumeX, X, Image as ImageIcon, Download, Loader2, Music, ChevronUp, ChevronDown, Flame, Activity as ActivityIcon, Gauge, Feather, Signal, Maximize, Minimize, Megaphone, PenTool, Map as MapIcon, Layers } from 'lucide-react';
+import { Play, Pause, Square, Flag, CheckCircle, Zap, Wind, Mountain, Footprints, Cloud, Tornado, Lock, Unlock, Crosshair, Mic, Target, Award, Share2, Volume2, VolumeX, X, Image as ImageIcon, Download, Loader2, Music, ChevronUp, ChevronDown, Flame, Activity as ActivityIcon, Gauge, Feather, Signal, Maximize, Minimize, Megaphone, PenTool, Map as MapIcon, Layers, TrendingUp, ZoomIn, ZoomOut, Focus } from 'lucide-react';
 import * as L from 'leaflet';
 import { SocialShareModal } from './SocialShareModal';
 
@@ -219,7 +220,14 @@ const GpsStatus = ({ accuracy }: { accuracy: number | null }) => {
     );
 };
 
-const LongPressButton = ({ onComplete, children, className, fillClass = "bg-white/30" }: any) => {
+interface LongPressButtonProps {
+    onComplete: () => void;
+    children?: React.ReactNode;
+    className?: string;
+    fillClass?: string;
+}
+
+const LongPressButton: React.FC<LongPressButtonProps> = ({ onComplete, children, className, fillClass = "bg-white/30" }) => {
     const [progress, setProgress] = useState(0);
     const intervalRef = useRef<number | null>(null);
 
@@ -366,6 +374,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   const [motivationalMsg, setMotivationalMsg] = useState<string | null>(null);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [runNotes, setRunNotes] = useState(''); // Notes state
+  const [paceHistory, setPaceHistory] = useState<number[]>([]); // For graph visualization
   
   // Share Modal State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -375,7 +384,9 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   const timerIntervalRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const lastAltitudeRef = useRef<number | null>(null);
+  const lastKmTriggerRef = useRef<number>(0); // Track last spoken KM
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const currentPaceRef = useRef(0); // Ref for stable access inside interval
 
   // Mock Goal
   useEffect(() => { setDailyGoal("Correr 5km sentindo a brisa."); }, []);
@@ -450,6 +461,8 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       const intro = getCariocaMessage('start');
       speak(intro);
       setRunNotes(''); // Reset notes
+      setPaceHistory([]); // Reset graph
+      lastKmTriggerRef.current = 0; // Reset triggers
 
       setTimeout(() => {
           setScreen('active');
@@ -457,9 +470,19 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
           setIsPaused(false);
           setIsStarting(false);
           startTimeRef.current = Date.now();
+          
           timerIntervalRef.current = window.setInterval(() => {
               const seconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
               setElapsedSeconds(seconds);
+              
+              // Update pace graph every second
+              // Use currentPaceRef to access the latest calculated pace
+              const validPace = currentPaceRef.current > 0 && currentPaceRef.current < 1200 ? currentPaceRef.current : 0; 
+              setPaceHistory(prev => {
+                  const newHistory = [...prev, validPace];
+                  return newHistory.length > 30 ? newHistory.slice(newHistory.length - 30) : newHistory;
+              });
+
           }, 1000);
 
           if (navigator.geolocation) {
@@ -471,6 +494,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                       const speedMps = pos.coords.speed || 0; 
                       const instantPaceSec = speedMps > 0.5 ? (1000 / speedMps) : 0;
                       setCurrentPace(instantPaceSec);
+                      currentPaceRef.current = instantPaceSec; // Sync ref
                       
                       const currentAlt = pos.coords.altitude;
                       if (currentAlt !== null && lastAltitudeRef.current !== null) {
@@ -495,6 +519,15 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                           if (d > 3) { 
                               const newTotalDistKm = (distance * 1000 + d) / 1000;
                               setDistance(newTotalDistKm);
+                              
+                              // Audio Trigger for KM milestones
+                              if (Math.floor(newTotalDistKm) > lastKmTriggerRef.current) {
+                                  if (playSound) playSound('success');
+                                  const kmReached = Math.floor(newTotalDistKm);
+                                  speak(`Quilômetro ${kmReached} concluído.`);
+                                  lastKmTriggerRef.current = kmReached;
+                              }
+
                               const weight = currentUser?.weight || 70;
                               setCalories(Math.floor(newTotalDistKm * weight * 1.036));
                               const totalTimeSec = (Date.now() - startTimeRef.current) / 1000;
@@ -528,6 +561,13 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       timerIntervalRef.current = window.setInterval(() => {
           const seconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
           setElapsedSeconds(seconds);
+          
+          // Continue updating pace graph
+          const validPace = currentPaceRef.current > 0 && currentPaceRef.current < 1200 ? currentPaceRef.current : 0; 
+          setPaceHistory(prev => {
+              const newHistory = [...prev, validPace];
+              return newHistory.length > 30 ? newHistory.slice(newHistory.length - 30) : newHistory;
+          });
       }, 1000);
   };
 
@@ -554,6 +594,50 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       const m = Math.floor(secPerKm / 60);
       const s = Math.floor(secPerKm % 60);
       return `${m}'${s.toString().padStart(2,'0')}"`;
+  };
+
+  // Generate Sparkline Path for Pace Graph
+  const getPacePath = () => {
+      if (paceHistory.length < 2) return "";
+      const maxVal = Math.max(...paceHistory, 600); // Cap at 10min/km for scale
+      const minVal = Math.min(...paceHistory.filter(p => p > 0), 180); // Cap low at 3min/km
+      const range = maxVal - minVal || 1;
+      
+      const width = 100; // percentages
+      const height = 100;
+      
+      const points = paceHistory.map((val, i) => {
+          const x = (i / (paceHistory.length - 1)) * width;
+          const normVal = val === 0 ? maxVal : val; // Treat 0 (stop) as slow
+          const y = ((normVal - minVal) / range) * height; 
+          const yClamped = Math.max(0, Math.min(100, y));
+          return `${x},${yClamped}`;
+      }).join(' ');
+      
+      return `M ${points}`;
+  };
+
+  // Calculate Pace Visual Feedback
+  const getPaceColor = () => {
+      if (!currentPace || !avgPace) return 'text-white';
+      // If current pace is significantly faster (lower value) than avg pace
+      if (currentPace < avgPace * 0.9) return 'text-green-400'; // Faster
+      // If current pace is significantly slower (higher value) than avg pace
+      if (currentPace > avgPace * 1.1) return 'text-red-400'; // Slower
+      return 'text-white'; // On pace
+  };
+
+  const handleZoom = (delta: number) => {
+      if (mapRef.current) {
+          mapRef.current.setZoom(mapRef.current.getZoom() + delta);
+      }
+  };
+
+  const handleCenterMap = () => {
+      if (mapRef.current && route.length > 0) {
+          const lastPoint = route[route.length - 1];
+          mapRef.current.panTo([lastPoint.lat, lastPoint.lng], { animate: true });
+      }
   };
 
   // --- SELECT SCREEN ---
@@ -614,13 +698,45 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   // --- ACTIVE HUD (PROFESSIONAL MODE) ---
   if (screen === 'active') {
       const isMapMode = viewMode === 'map';
+      const paceColor = getPaceColor();
+
       return (
           <div className="fixed inset-0 bg-black z-[100] flex flex-col select-none overflow-hidden">
               {/* Map Background Layer */}
               <div className={`absolute inset-0 z-0 transition-opacity duration-500 ${isMapMode ? 'opacity-100' : 'opacity-40 grayscale-[50%]'}`}>
                   <LiveMap route={route} isPaused={isPaused} onRef={(map) => mapRef.current = map} />
-                  {!isMapMode && <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/80 via-black/40 to-black/90"></div>}
+                  {!isMapMode && <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/80 via-black/60 to-black/90"></div>}
               </div>
+
+              {/* Map Controls (Visible in Map Mode) */}
+              {isMapMode && (
+                  <div className="absolute right-4 top-32 z-50 flex flex-col gap-3">
+                      <button onClick={() => handleZoom(1)} className="bg-gray-900/80 p-3 rounded-full text-white hover:bg-gray-700 border border-gray-700 shadow-lg">
+                          <ZoomIn size={20} />
+                      </button>
+                      <button onClick={() => handleZoom(-1)} className="bg-gray-900/80 p-3 rounded-full text-white hover:bg-gray-700 border border-gray-700 shadow-lg">
+                          <ZoomOut size={20} />
+                      </button>
+                      <button onClick={handleCenterMap} className="bg-amber-500 p-3 rounded-full text-black hover:bg-amber-400 shadow-lg border border-amber-400/50">
+                          <Focus size={20} />
+                      </button>
+                  </div>
+              )}
+
+              {/* Elevation Graph (Map Mode Only - Bottom) */}
+              {isMapMode && route.length > 20 && (
+                  <div className="absolute bottom-24 left-0 right-0 h-16 bg-black/60 z-10 backdrop-blur-sm border-t border-white/10 flex items-end px-4 pb-2">
+                      <div className="w-full h-10 flex items-end gap-0.5 opacity-70">
+                          {route.slice(-50).map((pt, i) => {
+                              const h = Math.min(100, Math.max(10, (pt.altitude || 0) / 2)); // Mock scaling
+                              return (
+                                  <div key={i} className="flex-1 bg-gray-400 rounded-t-sm" style={{ height: `${h}%` }}></div>
+                              )
+                          })}
+                      </div>
+                      <div className="absolute top-1 left-4 text-[10px] text-gray-400 font-bold uppercase">Perfil de Elevação</div>
+                  </div>
+              )}
 
               {motivationalMsg && (
                   <div className="absolute top-20 left-4 right-4 z-50 animate-fade-in pointer-events-none">
@@ -649,41 +765,80 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
               </div>
 
               {/* HUD Content */}
-              <div className={`relative z-10 flex-1 flex flex-col justify-end pb-8 px-4 transition-opacity duration-300 ${isMapMode ? 'opacity-90' : 'opacity-100'}`}>
+              <div className={`relative z-10 flex-1 flex flex-col justify-end pb-8 px-4 transition-opacity duration-300 ${isMapMode ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                   
                   {/* Stats Area - Conditional Layout based on Mode */}
                   {!isMapMode && (
-                      <div className="grid grid-cols-2 gap-4 mb-6">
-                          <div className="bg-black/40 backdrop-blur-md rounded-3xl p-6 border-l-4 border-amber-500 shadow-lg">
-                              <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest block mb-1">Distância</span>
-                              <span className="text-6xl font-black text-white italic tracking-tighter">{distance.toFixed(2)}<span className="text-2xl text-amber-500 not-italic">km</span></span>
+                      <div className="flex flex-col gap-4 mb-6">
+                          
+                          {/* Main Row: Distance & Time */}
+                          <div className="grid grid-cols-1 gap-2 text-center">
+                              <div>
+                                  <span className="text-[10px] text-gray-400 uppercase font-bold tracking-[0.2em]">Distância</span>
+                                  <div className="text-[5rem] font-black text-white italic tracking-tighter leading-none drop-shadow-2xl">
+                                      {distance.toFixed(2)}
+                                      <span className="text-3xl text-amber-500 not-italic ml-2">km</span>
+                                  </div>
+                              </div>
+                              <div>
+                                  <div className="inline-block bg-gray-900/50 backdrop-blur px-4 py-1 rounded-full border border-white/10">
+                                      <span className="text-3xl font-mono font-bold text-gray-200 tracking-tight">{formatTime(elapsedSeconds)}</span>
+                                  </div>
+                              </div>
                           </div>
-                          <div className="bg-black/40 backdrop-blur-md rounded-3xl p-6 border-l-4 border-blue-500 text-right shadow-lg">
-                              <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest block mb-1">Tempo</span>
-                              <span className="text-5xl font-mono font-bold text-white tracking-tight">{formatTime(elapsedSeconds)}</span>
+
+                          {/* Pace & Elevation Graph Area */}
+                          <div className="grid grid-cols-2 gap-4 mt-2">
+                              {/* PACE CARD with Sparkline Background */}
+                              <div className={`relative bg-gray-900/60 backdrop-blur-md rounded-3xl p-5 border border-gray-700 overflow-hidden ${currentPace > 0 && currentPace < 300 ? 'shadow-[0_0_15px_rgba(245,158,11,0.3)] border-amber-500/50' : ''}`}>
+                                  {/* Visual Pace Graph (Sparkline) */}
+                                  <div className="absolute inset-0 opacity-20 pointer-events-none flex items-end">
+                                      {paceHistory.length > 1 && (
+                                          <svg className="w-full h-full" preserveAspectRatio="none">
+                                              <polyline 
+                                                  points={paceHistory.map((p, i) => `${(i / (paceHistory.length - 1)) * 100},${100 - (Math.min(Math.max(0, (1000 - p)/10), 100))}`).join(' ')}
+                                                  fill="none" 
+                                                  stroke="#f59e0b" 
+                                                  strokeWidth="2" 
+                                              />
+                                          </svg>
+                                      )}
+                                  </div>
+                                  
+                                  <div className="relative z-10">
+                                      <div className="flex items-center gap-2 mb-1">
+                                          <ActivityIcon size={14} className={currentPace > 0 ? "text-amber-500 animate-pulse" : "text-gray-500"} />
+                                          <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Pace Atual</span>
+                                      </div>
+                                      <div className={`text-4xl font-black ${paceColor} transition-colors duration-500`}>{formatPace(currentPace)}</div>
+                                      <div className="text-[9px] text-gray-500 uppercase font-bold mt-1">min/km</div>
+                                  </div>
+                              </div>
+
+                              {/* ELEVATION CARD */}
+                              <div className="bg-gray-900/60 backdrop-blur-md rounded-3xl p-5 border border-gray-700 flex flex-col justify-center">
+                                  <div className="flex items-center gap-2 mb-1">
+                                      <Mountain size={14} className="text-green-500" />
+                                      <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Elevação</span>
+                                  </div>
+                                  <div className="text-4xl font-black text-white">{elevationGain.toFixed(0)}<span className="text-lg text-gray-500 ml-1">m</span></div>
+                                  <div className="text-[9px] text-gray-500 uppercase font-bold mt-1">Ganho Total</div>
+                              </div>
+                          </div>
+
+                          {/* Secondary Mini Stats */}
+                          <div className="grid grid-cols-2 gap-4 px-2">
+                              <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                                  <span className="text-xs text-gray-500 font-bold uppercase">Pace Médio</span>
+                                  <span className="text-sm font-mono font-bold text-gray-300">{formatPace(avgPace)}</span>
+                              </div>
+                              <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                                  <span className="text-xs text-gray-500 font-bold uppercase">Calorias</span>
+                                  <span className="text-sm font-mono font-bold text-orange-400">{calories} kcal</span>
+                              </div>
                           </div>
                       </div>
                   )}
-
-                  {/* Secondary Stats Grid */}
-                  <div className={`grid grid-cols-4 gap-2 mb-6 ${isMapMode ? 'bg-black/80 p-4 rounded-2xl border border-gray-800' : ''}`}>
-                      <div className="bg-gray-900/80 backdrop-blur rounded-xl p-2 text-center border border-white/5">
-                          <span className="text-[8px] text-gray-500 uppercase font-bold block">Pace Atual</span>
-                          <span className="text-lg font-black text-white">{formatPace(currentPace)}</span>
-                      </div>
-                      <div className="bg-gray-900/80 backdrop-blur rounded-xl p-2 text-center border border-white/5">
-                          <span className="text-[8px] text-gray-500 uppercase font-bold block">Pace Médio</span>
-                          <span className="text-lg font-black text-gray-300">{formatPace(avgPace)}</span>
-                      </div>
-                      <div className="bg-gray-900/80 backdrop-blur rounded-xl p-2 text-center border border-white/5">
-                          <span className="text-[8px] text-gray-500 uppercase font-bold block">Calorias</span>
-                          <span className="text-lg font-black text-orange-400">{calories}</span>
-                      </div>
-                      <div className="bg-gray-900/80 backdrop-blur rounded-xl p-2 text-center border border-white/5">
-                          <span className="text-[8px] text-gray-500 uppercase font-bold block">Elevação</span>
-                          <span className="text-lg font-black text-green-400">{elevationGain.toFixed(0)}m</span>
-                      </div>
-                  </div>
 
                   {/* Controls */}
                   <div className="flex items-center gap-4">

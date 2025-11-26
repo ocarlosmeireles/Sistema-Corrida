@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Story, Member, WindRank, ChatMessage, PrivateMessage } from '../types';
-import { Heart, Star, PlusCircle, Quote, Medal, Send, Radio, Hash, MessageSquare, Search, Users } from 'lucide-react';
+import { Story, Member, WindRank, ChatMessage, PrivateMessage, Challenge } from '../types';
+import { Heart, Star, PlusCircle, Quote, Medal, Send, Radio, Hash, MessageSquare, Search, Users, Trash2, Flag, CheckCircle } from 'lucide-react';
 
 interface CommunityProps {
   stories: Story[];
@@ -32,6 +32,11 @@ const INITIAL_CHATS: ChatMessage[] = [
     { id: '6', senderId: '4', senderName: 'Ana Rajada', content: 'Como faço para melhorar a respiração? Sinto pontada rápido.', timestamp: '14:20', channel: 'iniciantes' },
 ];
 
+const INITIAL_CHALLENGES: Challenge[] = [
+    { id: 'c1', creatorId: '1', creatorName: 'Carlos Admin', title: 'Desafio 100km em 30 Dias', description: 'Acumule 100km de corrida até o final do mês. Quem topa?', targetKm: 100, participants: ['1', '2', '3'], endDate: '2025-12-31' },
+    { id: 'c2', creatorId: '2', creatorName: 'Sarah Ventania', title: 'Fim de Semana 21k', description: 'Correr uma meia maratona neste fim de semana.', targetKm: 21, participants: ['2', '3'], endDate: '2025-11-30' }
+];
+
 // Respostas automáticas simuladas para dar vida ao chat
 const AUTO_REPLIES = [
     "Com certeza!",
@@ -50,7 +55,7 @@ export const Community: React.FC<CommunityProps> = ({
     stories, currentUser, members, onAddStory, onLikeStory, 
     directMessages, onSendMessage, initialChatTargetId, onNotifyMember 
 }) => {
-  const [activeTab, setActiveTab] = useState<'feed' | 'chat' | 'direct'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'chat' | 'direct' | 'challenges'>('feed');
   
   // Feed State
   const [isAdding, setIsAdding] = useState(false);
@@ -67,6 +72,13 @@ export const Community: React.FC<CommunityProps> = ({
   const [selectedDmUser, setSelectedDmUser] = useState<string | null>(initialChatTargetId || null);
   const [dmInput, setDmInput] = useState('');
   const [dmSearch, setDmSearch] = useState('');
+
+  // Challenges State
+  const [challenges, setChallenges] = useState<Challenge[]>(INITIAL_CHALLENGES);
+  const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
+  const [newChallenge, setNewChallenge] = useState({ title: '', description: '', targetKm: 50 });
+
+  const isAdmin = currentUser.role === 'admin' || currentUser.role === 'super_admin';
 
   // Handle deep linking to chat
   useEffect(() => {
@@ -164,11 +176,48 @@ export const Community: React.FC<CommunityProps> = ({
       setNewMessage('');
   };
 
+  const handleDeleteMessage = (id: string) => {
+      if (window.confirm("Remover esta mensagem?")) {
+          setMessages(prev => prev.filter(m => m.id !== id));
+      }
+  }
+
   const handleDirectMessageSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       if (!selectedDmUser || !dmInput.trim()) return;
       onSendMessage(selectedDmUser, dmInput);
       setDmInput('');
+  };
+
+  const handleCreateChallenge = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!newChallenge.title) return;
+      
+      const challenge: Challenge = {
+          id: Date.now().toString(),
+          creatorId: currentUser.id,
+          creatorName: currentUser.name,
+          title: newChallenge.title,
+          description: newChallenge.description,
+          targetKm: newChallenge.targetKm,
+          participants: [currentUser.id],
+          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      };
+      
+      setChallenges([...challenges, challenge]);
+      setIsCreatingChallenge(false);
+      setNewChallenge({ title: '', description: '', targetKm: 50 });
+  };
+
+  const handleJoinChallenge = (id: string) => {
+      setChallenges(prev => prev.map(c => {
+          if(c.id === id) {
+              if(!c.participants.includes(currentUser.id)) {
+                  return { ...c, participants: [...c.participants, currentUser.id] };
+              }
+          }
+          return c;
+      }));
   };
 
   const filteredMessages = messages.filter(m => m.channel === currentChannel);
@@ -219,6 +268,16 @@ export const Community: React.FC<CommunityProps> = ({
                 }`}
              >
                  <Star size={16} /> Feed
+             </button>
+             <button
+                onClick={() => setActiveTab('challenges')}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
+                    activeTab === 'challenges' 
+                    ? 'bg-red-500 text-white shadow-sm' 
+                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+             >
+                 <Flag size={16} /> Desafios
              </button>
              <button
                 onClick={() => setActiveTab('chat')}
@@ -374,6 +433,81 @@ export const Community: React.FC<CommunityProps> = ({
         </div>
       )}
 
+      {/* --- CHALLENGES TAB --- */}
+      {activeTab === 'challenges' && (
+          <div className="animate-fade-in space-y-6">
+              <div className="flex justify-between items-center">
+                  <div>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">Desafios Ativos</h3>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">Supere seus amigos e ganhe XP extra.</p>
+                  </div>
+                  <button 
+                      onClick={() => setIsCreatingChallenge(!isCreatingChallenge)}
+                      className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors"
+                  >
+                      <PlusCircle size={16} /> Criar Desafio
+                  </button>
+              </div>
+
+              {isCreatingChallenge && (
+                  <div className="bg-gray-100 dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800 animate-fade-in">
+                      <h4 className="font-bold mb-4 text-gray-900 dark:text-white">Novo Desafio</h4>
+                      <form onSubmit={handleCreateChallenge} className="space-y-4">
+                          <input type="text" placeholder="Nome do Desafio" value={newChallenge.title} onChange={e => setNewChallenge({...newChallenge, title: e.target.value})} className="w-full p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-sm outline-none dark:text-white" />
+                          <textarea placeholder="Descrição (Regras)" value={newChallenge.description} onChange={e => setNewChallenge({...newChallenge, description: e.target.value})} className="w-full p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-sm outline-none resize-none h-20 dark:text-white" />
+                          <div className="flex items-center gap-4">
+                              <label className="text-sm font-bold text-gray-600 dark:text-gray-400">Meta (km):</label>
+                              <input type="number" value={newChallenge.targetKm} onChange={e => setNewChallenge({...newChallenge, targetKm: parseInt(e.target.value)})} className="w-24 p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-sm outline-none dark:text-white" />
+                          </div>
+                          <button type="submit" className="w-full bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600">Lançar Desafio</button>
+                      </form>
+                  </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {challenges.map(challenge => {
+                      const isParticipant = challenge.participants.includes(currentUser.id);
+                      return (
+                          <div key={challenge.id} className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm hover:border-red-500/50 transition-all">
+                              <div className="flex justify-between items-start mb-3">
+                                  <div className="bg-red-100 dark:bg-red-900/20 p-2 rounded-lg text-red-600 dark:text-red-400">
+                                      <Flag size={24} />
+                                  </div>
+                                  {isParticipant && (
+                                      <span className="text-xs bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-2 py-1 rounded-full font-bold flex items-center gap-1">
+                                          <CheckCircle size={12} /> Aceito
+                                      </span>
+                                  )}
+                              </div>
+                              <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{challenge.title}</h4>
+                              <p className="text-xs text-gray-500 mb-4">Por {challenge.creatorName}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 h-10 overflow-hidden">{challenge.description}</p>
+                              
+                              <div className="flex justify-between items-center border-t border-gray-100 dark:border-gray-700 pt-4">
+                                  <div className="text-xs text-gray-500">
+                                      <strong className="text-gray-900 dark:text-white">{challenge.participants.length}</strong> Corredores
+                                  </div>
+                                  <div className="text-right">
+                                      <p className="text-[10px] text-gray-400 uppercase font-bold">Meta</p>
+                                      <p className="text-lg font-black text-red-500">{challenge.targetKm} km</p>
+                                  </div>
+                              </div>
+
+                              {!isParticipant && (
+                                  <button 
+                                      onClick={() => handleJoinChallenge(challenge.id)}
+                                      className="w-full mt-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold py-2 rounded-lg hover:opacity-90 transition-opacity text-sm"
+                                  >
+                                      Aceitar Desafio
+                                  </button>
+                              )}
+                          </div>
+                      );
+                  })}
+              </div>
+          </div>
+      )}
+
       {/* --- PUBLIC CHAT TAB --- */}
       {activeTab === 'chat' && (
           <div className="animate-fade-in flex flex-col md:flex-row gap-4 h-[600px] bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-xl">
@@ -436,10 +570,21 @@ export const Community: React.FC<CommunityProps> = ({
                                             </div>
                                         </div>
                                     )}
-                                    <div className={`max-w-[80%] rounded-2xl p-3 shadow-sm relative group ${isMe ? 'bg-amber-500 text-white rounded-tr-none' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-tl-none border border-gray-200 dark:border-gray-700'}`}>
+                                    <div className={`max-w-[80%] group relative rounded-2xl p-3 shadow-sm ${isMe ? 'bg-amber-500 text-white rounded-tr-none' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-tl-none border border-gray-200 dark:border-gray-700'}`}>
                                         {!isMe && <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mb-1">{msg.senderName}</p>}
                                         <p className="text-sm leading-snug">{msg.content}</p>
-                                        <span className={`text-[9px] block text-right mt-1 ${isMe ? 'text-amber-100' : 'text-gray-400'}`}>{msg.timestamp}</span>
+                                        <div className="flex items-center justify-end gap-2 mt-1">
+                                            <span className={`text-[9px] ${isMe ? 'text-amber-100' : 'text-gray-400'}`}>{msg.timestamp}</span>
+                                            {isAdmin && (
+                                                <button 
+                                                    onClick={() => handleDeleteMessage(msg.id)}
+                                                    className={`opacity-0 group-hover:opacity-100 transition-opacity text-[10px] ${isMe ? 'text-white hover:text-red-200' : 'text-gray-400 hover:text-red-500'}`}
+                                                    title="Admin: Excluir mensagem"
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             );

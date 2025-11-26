@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Member, WindRank } from '../types';
-import { Crown, Zap, MapPin, TrendingUp, Medal } from 'lucide-react';
+import { Crown, Zap, MapPin, TrendingUp, Medal, Flame } from 'lucide-react';
 
 interface LeaderboardProps {
   members: Member[];
@@ -21,26 +21,50 @@ const getRankStyle = (rank: WindRank) => {
   }
 };
 
-type LeaderboardMode = 'distance' | 'season';
+type LeaderboardMode = 'distance' | 'season' | 'legend';
 
 export const Leaderboard: React.FC<LeaderboardProps> = ({ members, onMemberClick }) => {
   const [mode, setMode] = useState<LeaderboardMode>('season');
 
   // Sort Logic
-  const sortedMembers = [...members].sort((a, b) => {
-    if (mode === 'distance') {
-      return b.totalDistance - a.totalDistance;
-    } else {
-      return b.seasonScore - a.seasonScore;
-    }
-  });
+  let sortedMembers = [...members];
+  
+  if (mode === 'distance') {
+      sortedMembers.sort((a, b) => b.totalDistance - a.totalDistance);
+  } else if (mode === 'season') {
+      sortedMembers.sort((a, b) => b.seasonScore - a.seasonScore);
+  } else if (mode === 'legend') {
+      // Sort by frequency (number of activities in last 90 days)
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      
+      sortedMembers.sort((a, b) => {
+          const countA = a.activities.filter(act => new Date(act.date) >= ninetyDaysAgo).length;
+          const countB = b.activities.filter(act => new Date(act.date) >= ninetyDaysAgo).length;
+          return countB - countA;
+      });
+  }
 
   const top3 = sortedMembers.slice(0, 3);
   const rest = sortedMembers.slice(3);
 
   // Value accessor helper
-  const getValue = (m: Member) => mode === 'season' ? m.seasonScore : m.totalDistance;
+  const getValue = (m: Member) => {
+      if (mode === 'season') return m.seasonScore;
+      if (mode === 'distance') return m.totalDistance;
+      // Legend mode: Activity Count
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      return m.activities.filter(act => new Date(act.date) >= ninetyDaysAgo).length;
+  };
+  
   const maxValue = sortedMembers.length > 0 ? getValue(sortedMembers[0]) : 1;
+
+  const getUnit = () => {
+      if (mode === 'season') return 'XP';
+      if (mode === 'distance') return 'km';
+      return 'treinos';
+  };
 
   return (
     <div className="space-y-8 pb-20 animate-fade-in">
@@ -51,30 +75,40 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ members, onMemberClick
             <Crown className="text-amber-500" /> Ranking dos Ventos
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {mode === 'season' ? 'Quem domina a temporada (XP).' : 'Os maiores acumuladores de milhas (KM).'}
+            {mode === 'season' ? 'Quem domina a temporada (XP).' : mode === 'distance' ? 'Os maiores acumuladores de milhas (KM).' : 'Quem mais treina nos últimos 90 dias.'}
           </p>
         </div>
         
-        <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl flex items-center self-start md:self-auto">
+        <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl flex items-center self-start md:self-auto overflow-x-auto max-w-full">
           <button
             onClick={() => setMode('season')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${
+            className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${
               mode === 'season' 
                 ? 'bg-white dark:bg-gray-700 text-purple-600 dark:text-purple-400 shadow-sm' 
                 : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
             }`}
           >
-            <Zap size={16} /> XP Temporada
+            <Zap size={16} /> XP
           </button>
           <button
             onClick={() => setMode('distance')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${
+            className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${
               mode === 'distance' 
                 ? 'bg-white dark:bg-gray-700 text-amber-600 dark:text-amber-400 shadow-sm' 
                 : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
             }`}
           >
-            <MapPin size={16} /> Distância Total
+            <MapPin size={16} /> KM
+          </button>
+          <button
+            onClick={() => setMode('legend')}
+            className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${
+              mode === 'legend' 
+                ? 'bg-white dark:bg-gray-700 text-yellow-500 shadow-sm' 
+                : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
+            }`}
+          >
+            <Flame size={16} /> Lendas
           </button>
         </div>
       </div>
@@ -92,7 +126,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ members, onMemberClick
                     <div className="mt-4 text-center">
                         <p className="font-bold text-gray-900 dark:text-white text-sm md:text-base truncate max-w-[100px]">{top3[1].name}</p>
                         <p className={`text-xs font-bold ${mode === 'season' ? 'text-purple-500' : 'text-amber-500'}`}>
-                            {mode === 'season' ? `${top3[1].seasonScore} XP` : `${top3[1].totalDistance.toFixed(0)} km`}
+                            {mode === 'distance' ? top3[1].totalDistance.toFixed(0) : getValue(top3[1])} {getUnit()}
                         </p>
                         <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 mt-1 inline-block`}>
                             {top3[1].rank}
@@ -113,11 +147,18 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ members, onMemberClick
                     <div className="mt-5 text-center">
                         <p className="font-bold text-gray-900 dark:text-white text-base md:text-lg">{top3[0].name}</p>
                         <p className={`text-sm font-black ${mode === 'season' ? 'text-purple-500' : 'text-amber-500'}`}>
-                            {mode === 'season' ? `${top3[0].seasonScore} XP` : `${top3[0].totalDistance.toFixed(0)} km`}
+                            {mode === 'distance' ? top3[0].totalDistance.toFixed(0) : getValue(top3[0])} {getUnit()}
                         </p>
-                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-yellow-400/10 text-yellow-600 dark:text-yellow-400 mt-1 inline-block border border-yellow-400/20`}>
-                            {top3[0].rank}
-                        </span>
+                        {mode === 'legend' && (
+                            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-yellow-400/20 text-yellow-500 mt-1 inline-block border border-yellow-400/30">
+                                Lenda do Vento
+                            </span>
+                        )}
+                        {mode !== 'legend' && (
+                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-yellow-400/10 text-yellow-600 dark:text-yellow-400 mt-1 inline-block border border-yellow-400/20`}>
+                                {top3[0].rank}
+                            </span>
+                        )}
                     </div>
                     <div className="h-32 w-full bg-gradient-to-t from-yellow-400/20 to-yellow-400/0 mt-2 rounded-t-lg shadow-[0_0_20px_rgba(250,204,21,0.1)]"></div>
                 </div>
@@ -133,7 +174,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ members, onMemberClick
                     <div className="mt-4 text-center">
                         <p className="font-bold text-gray-900 dark:text-white text-sm md:text-base truncate max-w-[100px]">{top3[2].name}</p>
                         <p className={`text-xs font-bold ${mode === 'season' ? 'text-purple-500' : 'text-amber-500'}`}>
-                            {mode === 'season' ? `${top3[2].seasonScore} XP` : `${top3[2].totalDistance.toFixed(0)} km`}
+                            {mode === 'distance' ? top3[2].totalDistance.toFixed(0) : getValue(top3[2])} {getUnit()}
                         </p>
                         <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 mt-1 inline-block`}>
                             {top3[2].rank}
@@ -189,11 +230,9 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ members, onMemberClick
 
                 <div className="text-right">
                   <div className={`text-lg font-bold font-mono ${mode === 'season' ? 'text-purple-600 dark:text-purple-400' : 'text-gray-900 dark:text-white'}`}>
-                    {mode === 'season' 
-                      ? member.seasonScore 
-                      : member.totalDistance.toFixed(1)}
+                    {mode === 'distance' ? val.toFixed(1) : val}
                     <span className="text-xs text-gray-400 ml-1 font-sans">
-                      {mode === 'season' ? 'XP' : 'km'}
+                      {getUnit()}
                     </span>
                   </div>
                   {mode === 'season' && (

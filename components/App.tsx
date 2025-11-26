@@ -151,6 +151,9 @@ const App: React.FC = () => {
   // --- SOUND ENGINE ---
   const playUISound = (type: SoundType) => {
     try {
+        // SILENT CLICK AS REQUESTED
+        if (type === 'click') return;
+
         const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
         if (!AudioContext) return;
         
@@ -172,9 +175,6 @@ const App: React.FC = () => {
         const now = ctx.currentTime;
 
         switch (type) {
-            case 'click':
-                // Silent for clicks as requested
-                break;
             case 'toggle':
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(400, now);
