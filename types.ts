@@ -139,6 +139,7 @@ export interface Challenge {
   targetKm: number;
   participants: string[]; // IDs of members
   endDate: string;
+  startDate: string; // Added for progress calculation
 }
 
 export interface TeamStats {

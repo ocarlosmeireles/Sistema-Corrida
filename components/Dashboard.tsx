@@ -1,9 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
-import { Member, Season, RaceEvent, Story, SoundType, Activity } from '../types';
+import { Member, Season, RaceEvent, Story, SoundType, Activity, Challenge } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, AreaChart, Area } from 'recharts';
 import { ActivityLogger } from './ActivityLogger';
-import { Sun, CloudRain, Wind, Rocket, Bot, Crown, Heart, Zap, TrendingUp, Plus, ChevronRight, MapPin, Footprints, Calendar, Activity as ActivityIcon, Printer, FileText, Timer, Info, Award, Clock } from 'lucide-react';
+import { Sun, CloudRain, Wind, Rocket, Bot, Crown, Heart, Zap, TrendingUp, Plus, ChevronRight, MapPin, Footprints, Calendar, Activity as ActivityIcon, Printer, FileText, Timer, Info, Award, Clock, Flag } from 'lucide-react';
 import { SocialShareModal } from './SocialShareModal';
 
 interface DashboardProps {
@@ -17,6 +17,7 @@ interface DashboardProps {
   onNavigate?: (tab: string) => void;
   playSound?: (type: SoundType) => void;
   onUpgradeRequest?: () => void;
+  challenges?: Challenge[];
 }
 
 // --- HELPER FUNCTIONS ---
@@ -99,11 +100,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onUpdateUser, 
   onNavigate,
   playSound,
-  onUpgradeRequest
+  onUpgradeRequest,
+  challenges = []
 }) => {
   const [weather, setWeather] = useState<any>(null);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [activeBarIndex, setActiveBarIndex] = useState<number | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
   const isPro = currentUser.plan === 'pro';
 
   // --- DATA CALCS ---
@@ -130,6 +133,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
         distance: a.distanceKm
     }))
     .filter(d => d.paceSeconds > 0 && d.distance > 1); // Filter weird data and very short runs
+
+  // Calculate Active Challenge Progress
+  const activeChallenge = challenges.find(c => c.participants.includes(currentUser.id));
+  const challengeProgress = activeChallenge ? (() => {
+      const startDate = new Date(activeChallenge.startDate || '2000-01-01'); // Fallback if no start date
+      const relevantActivities = currentUser.activities.filter(a => new Date(a.date) >= startDate);
+      const totalKm = relevantActivities.reduce((acc, a) => acc + a.distanceKm, 0);
+      return {
+          totalKm,
+          percentage: Math.min(100, (totalKm / activeChallenge.targetKm) * 100),
+          remaining: Math.max(0, activeChallenge.targetKm - totalKm)
+      };
+  })() : null;
 
   // Race Predictions Logic (Riegel Formula)
   // T2 = T1 * (D2 / D1)^1.06
@@ -216,8 +232,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handlePrintReport = () => {
-      // Ensure the print dialog sees the print-only content
-      window.print();
+      // Switch to Print Mode (Show Report Overlay)
+      setIsPrinting(true);
+      // Wait for render then print
+      setTimeout(() => {
+          window.print();
+          // After print dialog closes, revert
+          setTimeout(() => setIsPrinting(false), 500);
+      }, 100);
   };
 
   // --- BENTO GRID COMPONENTS ---
@@ -373,6 +395,45 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <p className="text-[10px] text-center text-gray-400 mt-2 font-bold uppercase tracking-widest">Últimas 20 Atividades</p>
     </div>
   );
+
+  const ChallengeCard = () => {
+      if (!activeChallenge || !challengeProgress) return null;
+      return (
+          <div className="bg-gradient-to-br from-red-900 to-red-950 text-white rounded-3xl p-6 relative overflow-hidden shadow-lg col-span-1 md:col-span-2 border border-red-800 flex flex-col justify-between group">
+              <div className="absolute -right-4 -top-4 text-red-800 opacity-20">
+                  <Flag size={100} />
+              </div>
+              
+              <div className="relative z-10">
+                  <div className="flex justify-between items-start">
+                      <div>
+                          <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                              <Flag size={12} /> Missão Ativa
+                          </p>
+                          <h3 className="text-xl font-black text-white leading-tight">{activeChallenge.title}</h3>
+                      </div>
+                      <div className="text-right">
+                          <span className="text-2xl font-bold text-white">{challengeProgress.remaining.toFixed(1)}</span>
+                          <span className="text-xs text-red-300 block">km restantes</span>
+                      </div>
+                  </div>
+                  
+                  <div className="mt-6">
+                      <div className="flex justify-between text-xs text-red-200 font-bold uppercase tracking-wider mb-2">
+                          <span>Progresso</span>
+                          <span>{challengeProgress.percentage.toFixed(0)}%</span>
+                      </div>
+                      <div className="h-3 bg-red-950/50 rounded-full overflow-hidden border border-red-800/30">
+                          <div 
+                              className="h-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.6)] transition-all duration-1000 ease-out"
+                              style={{ width: `${challengeProgress.percentage}%` }}
+                          ></div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      );
+  };
 
   const PredictionsCard = () => (
       <div className="bg-[#1a1a1a] text-white rounded-3xl p-6 relative overflow-hidden shadow-lg col-span-1 border border-gray-800 flex flex-col justify-between group">
@@ -537,59 +598,61 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <>
         {/* PRINTABLE REPORT VIEW */}
-        <div className="hidden print:block fixed inset-0 w-screen h-screen bg-white z-[99999] p-12 overflow-visible text-black left-0 top-0">
-            <div className="flex justify-between items-center mb-8 border-b border-gray-200 pb-4">
-                <div className="flex items-center gap-3">
-                    <Wind size={32} className="text-black" />
-                    <h1 className="text-3xl font-black tracking-tighter uppercase">Filhos do Vento</h1>
-                </div>
-                <div className="text-right">
-                    <h2 className="text-sm font-bold uppercase text-gray-500">Relatório de Performance</h2>
-                    <p className="text-xs text-gray-400">{new Date().toLocaleDateString()}</p>
-                </div>
-            </div>
-
-            <div className="flex items-start gap-6 mb-8 bg-gray-50 p-6 rounded-xl border border-gray-100">
-                <img src={currentUser.avatarUrl} className="w-20 h-20 rounded-full border-2 border-gray-300" alt="User" />
-                <div>
-                    <h3 className="text-2xl font-bold text-black">{currentUser.name}</h3>
-                    <p className="text-sm text-gray-600 uppercase font-bold tracking-wider mb-2">{currentUser.rank}</p>
-                    <div className="flex gap-6 text-sm">
-                        <div><span className="font-bold text-black">{currentUser.totalDistance.toFixed(1)}</span> km totais</div>
-                        <div><span className="font-bold text-black">{currentUser.seasonScore}</span> XP</div>
-                        <div><span className="font-bold text-black">{currentUser.activities.length}</span> Atividades</div>
+        {isPrinting && (
+            <div className="fixed inset-0 w-screen h-screen bg-white z-[99999] p-12 overflow-visible text-black left-0 top-0">
+                <div className="flex justify-between items-center mb-8 border-b border-gray-200 pb-4">
+                    <div className="flex items-center gap-3">
+                        <Wind size={32} className="text-black" />
+                        <h1 className="text-3xl font-black tracking-tighter uppercase">Filhos do Vento</h1>
+                    </div>
+                    <div className="text-right">
+                        <h2 className="text-sm font-bold uppercase text-gray-500">Relatório de Performance</h2>
+                        <p className="text-xs text-gray-400">{new Date().toLocaleDateString()}</p>
                     </div>
                 </div>
-            </div>
 
-            <h3 className="text-lg font-bold uppercase tracking-widest mb-4 border-l-4 border-black pl-3">Histórico Recente</h3>
-            <table className="w-full text-left border-collapse">
-                <thead>
-                    <tr className="border-b-2 border-black">
-                        <th className="py-2 text-xs font-black uppercase">Data</th>
-                        <th className="py-2 text-xs font-black uppercase">Distância</th>
-                        <th className="py-2 text-xs font-black uppercase">Tempo</th>
-                        <th className="py-2 text-xs font-black uppercase">Pace</th>
-                        <th className="py-2 text-xs font-black uppercase">Sensação</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {currentUser.activities.slice().sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 20).map((act, i) => (
-                        <tr key={i} className="border-b border-gray-200">
-                            <td className="py-3 text-sm font-medium">{new Date(act.date).toLocaleDateString()}</td>
-                            <td className="py-3 text-sm font-bold">{act.distanceKm.toFixed(2)} km</td>
-                            <td className="py-3 text-sm font-mono">{act.durationMin} min</td>
-                            <td className="py-3 text-sm font-mono">{act.pace}</td>
-                            <td className="py-3 text-xs uppercase text-gray-500">{act.feeling}</td>
+                <div className="flex items-start gap-6 mb-8 bg-gray-50 p-6 rounded-xl border border-gray-100">
+                    <img src={currentUser.avatarUrl} className="w-20 h-20 rounded-full border-2 border-gray-300" alt="User" />
+                    <div>
+                        <h3 className="text-2xl font-bold text-black">{currentUser.name}</h3>
+                        <p className="text-sm text-gray-600 uppercase font-bold tracking-wider mb-2">{currentUser.rank}</p>
+                        <div className="flex gap-6 text-sm">
+                            <div><span className="font-bold text-black">{currentUser.totalDistance.toFixed(1)}</span> km totais</div>
+                            <div><span className="font-bold text-black">{currentUser.seasonScore}</span> XP</div>
+                            <div><span className="font-bold text-black">{currentUser.activities.length}</span> Atividades</div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 className="text-lg font-bold uppercase tracking-widest mb-4 border-l-4 border-black pl-3">Histórico Recente</h3>
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                        <tr className="border-b-2 border-black">
+                            <th className="py-2 text-xs font-black uppercase">Data</th>
+                            <th className="py-2 text-xs font-black uppercase">Distância</th>
+                            <th className="py-2 text-xs font-black uppercase">Tempo</th>
+                            <th className="py-2 text-xs font-black uppercase">Pace</th>
+                            <th className="py-2 text-xs font-black uppercase">Sensação</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
-            
-            <div className="mt-12 pt-4 border-t border-gray-200 text-center text-xs text-gray-400 uppercase font-bold">
-                Gerado automaticamente pelo sistema Filhos do Vento
+                    </thead>
+                    <tbody>
+                        {currentUser.activities.slice().sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 20).map((act, i) => (
+                            <tr key={i} className="border-b border-gray-200">
+                                <td className="py-3 text-sm font-medium">{new Date(act.date).toLocaleDateString()}</td>
+                                <td className="py-3 text-sm font-bold">{act.distanceKm.toFixed(2)} km</td>
+                                <td className="py-3 text-sm font-mono">{act.durationMin} min</td>
+                                <td className="py-3 text-sm font-mono">{act.pace}</td>
+                                <td className="py-3 text-xs uppercase text-gray-500">{act.feeling}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                
+                <div className="mt-12 pt-4 border-t border-gray-200 text-center text-xs text-gray-400 uppercase font-bold">
+                    Gerado automaticamente pelo sistema Filhos do Vento
+                </div>
             </div>
-        </div>
+        )}
 
         {/* MAIN DASHBOARD - HIDDEN ON PRINT */}
         <div className="pb-24 animate-fade-in space-y-6 print:hidden">
@@ -666,6 +729,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 {/* 5. NEW FEATURES: Progress & Predictions */}
+                {challengeProgress && <ChallengeCard />}
                 <ProgressCard />
                 <PredictionsCard />
 

@@ -7,6 +7,9 @@ interface CommunityProps {
   stories: Story[];
   currentUser: Member;
   members: Member[];
+  challenges: Challenge[];
+  onAddChallenge: (challenge: Challenge) => void;
+  onJoinChallenge: (challengeId: string) => void;
   onAddStory: (story: Story) => void;
   onLikeStory: (id: string) => void;
   directMessages: PrivateMessage[];
@@ -32,11 +35,6 @@ const INITIAL_CHATS: ChatMessage[] = [
     { id: '6', senderId: '4', senderName: 'Ana Rajada', content: 'Como faço para melhorar a respiração? Sinto pontada rápido.', timestamp: '14:20', channel: 'iniciantes' },
 ];
 
-const INITIAL_CHALLENGES: Challenge[] = [
-    { id: 'c1', creatorId: '1', creatorName: 'Carlos Admin', title: 'Desafio 100km em 30 Dias', description: 'Acumule 100km de corrida até o final do mês. Quem topa?', targetKm: 100, participants: ['1', '2', '3'], endDate: '2025-12-31' },
-    { id: 'c2', creatorId: '2', creatorName: 'Sarah Ventania', title: 'Fim de Semana 21k', description: 'Correr uma meia maratona neste fim de semana.', targetKm: 21, participants: ['2', '3'], endDate: '2025-11-30' }
-];
-
 // Respostas automáticas simuladas para dar vida ao chat
 const AUTO_REPLIES = [
     "Com certeza!",
@@ -53,7 +51,8 @@ const AUTO_REPLIES = [
 
 export const Community: React.FC<CommunityProps> = ({ 
     stories, currentUser, members, onAddStory, onLikeStory, 
-    directMessages, onSendMessage, initialChatTargetId, onNotifyMember 
+    directMessages, onSendMessage, initialChatTargetId, onNotifyMember,
+    challenges, onAddChallenge, onJoinChallenge
 }) => {
   const [activeTab, setActiveTab] = useState<'feed' | 'chat' | 'direct' | 'challenges'>('feed');
   
@@ -74,9 +73,8 @@ export const Community: React.FC<CommunityProps> = ({
   const [dmSearch, setDmSearch] = useState('');
 
   // Challenges State
-  const [challenges, setChallenges] = useState<Challenge[]>(INITIAL_CHALLENGES);
   const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
-  const [newChallenge, setNewChallenge] = useState({ title: '', description: '', targetKm: 50 });
+  const [newChallenge, setNewChallenge] = useState({ title: '', description: '', targetKm: 50, startDate: new Date().toISOString().split('T')[0], endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] });
 
   const isAdmin = currentUser.role === 'admin' || currentUser.role === 'super_admin';
 
@@ -201,23 +199,13 @@ export const Community: React.FC<CommunityProps> = ({
           description: newChallenge.description,
           targetKm: newChallenge.targetKm,
           participants: [currentUser.id],
-          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          startDate: newChallenge.startDate,
+          endDate: newChallenge.endDate
       };
       
-      setChallenges([...challenges, challenge]);
+      onAddChallenge(challenge);
       setIsCreatingChallenge(false);
-      setNewChallenge({ title: '', description: '', targetKm: 50 });
-  };
-
-  const handleJoinChallenge = (id: string) => {
-      setChallenges(prev => prev.map(c => {
-          if(c.id === id) {
-              if(!c.participants.includes(currentUser.id)) {
-                  return { ...c, participants: [...c.participants, currentUser.id] };
-              }
-          }
-          return c;
-      }));
+      setNewChallenge({ title: '', description: '', targetKm: 50, startDate: new Date().toISOString().split('T')[0], endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] });
   };
 
   const filteredMessages = messages.filter(m => m.channel === currentChannel);
@@ -455,9 +443,19 @@ export const Community: React.FC<CommunityProps> = ({
                       <form onSubmit={handleCreateChallenge} className="space-y-4">
                           <input type="text" placeholder="Nome do Desafio" value={newChallenge.title} onChange={e => setNewChallenge({...newChallenge, title: e.target.value})} className="w-full p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-sm outline-none dark:text-white" />
                           <textarea placeholder="Descrição (Regras)" value={newChallenge.description} onChange={e => setNewChallenge({...newChallenge, description: e.target.value})} className="w-full p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-sm outline-none resize-none h-20 dark:text-white" />
-                          <div className="flex items-center gap-4">
-                              <label className="text-sm font-bold text-gray-600 dark:text-gray-400">Meta (km):</label>
-                              <input type="number" value={newChallenge.targetKm} onChange={e => setNewChallenge({...newChallenge, targetKm: parseInt(e.target.value)})} className="w-24 p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-sm outline-none dark:text-white" />
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div>
+                                  <label className="text-sm font-bold text-gray-600 dark:text-gray-400 block mb-1">Meta (km):</label>
+                                  <input type="number" value={newChallenge.targetKm} onChange={e => setNewChallenge({...newChallenge, targetKm: parseInt(e.target.value)})} className="w-full p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-sm outline-none dark:text-white" />
+                              </div>
+                              <div>
+                                  <label className="text-sm font-bold text-gray-600 dark:text-gray-400 block mb-1">Início:</label>
+                                  <input type="date" value={newChallenge.startDate} onChange={e => setNewChallenge({...newChallenge, startDate: e.target.value})} className="w-full p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-sm outline-none dark:text-white" />
+                              </div>
+                              <div>
+                                  <label className="text-sm font-bold text-gray-600 dark:text-gray-400 block mb-1">Fim:</label>
+                                  <input type="date" value={newChallenge.endDate} onChange={e => setNewChallenge({...newChallenge, endDate: e.target.value})} className="w-full p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-sm outline-none dark:text-white" />
+                              </div>
                           </div>
                           <button type="submit" className="w-full bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600">Lançar Desafio</button>
                       </form>
@@ -482,6 +480,7 @@ export const Community: React.FC<CommunityProps> = ({
                               <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{challenge.title}</h4>
                               <p className="text-xs text-gray-500 mb-4">Por {challenge.creatorName}</p>
                               <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 h-10 overflow-hidden">{challenge.description}</p>
+                              <p className="text-xs text-gray-400 mb-4 font-mono">Até {new Date(challenge.endDate).toLocaleDateString()}</p>
                               
                               <div className="flex justify-between items-center border-t border-gray-100 dark:border-gray-700 pt-4">
                                   <div className="text-xs text-gray-500">
@@ -495,7 +494,7 @@ export const Community: React.FC<CommunityProps> = ({
 
                               {!isParticipant && (
                                   <button 
-                                      onClick={() => handleJoinChallenge(challenge.id)}
+                                      onClick={() => onJoinChallenge(challenge.id)}
                                       className="w-full mt-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold py-2 rounded-lg hover:opacity-90 transition-opacity text-sm"
                                   >
                                       Aceitar Desafio
@@ -508,6 +507,7 @@ export const Community: React.FC<CommunityProps> = ({
           </div>
       )}
 
+      {/* ... Public Chat & Direct Messages Tabs remain identical to original file ... */}
       {/* --- PUBLIC CHAT TAB --- */}
       {activeTab === 'chat' && (
           <div className="animate-fade-in flex flex-col md:flex-row gap-4 h-[600px] bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-xl">

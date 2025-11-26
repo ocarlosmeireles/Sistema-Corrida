@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { Activity, RoutePoint, Notification, Member, WorkoutMode, SoundType } from '../types';
-import { Play, Pause, Square, Flag, CheckCircle, Zap, Wind, Mountain, Footprints, Cloud, Tornado, Lock, Unlock, Crosshair, Mic, Target, Award, Share2, Volume2, VolumeX, X, Image as ImageIcon, Download, Loader2, Music, ChevronUp, ChevronDown, Flame, Activity as ActivityIcon, Gauge, Feather, Signal, Maximize, Minimize, Megaphone, PenTool, Map as MapIcon, Layers, TrendingUp, ZoomIn, ZoomOut, Focus } from 'lucide-react';
+import { Play, Pause, Square, Flag, CheckCircle, Zap, Wind, Mountain, Footprints, Cloud, Tornado, Lock, Unlock, Crosshair, Mic, Target, Award, Share2, Volume2, VolumeX, X, Image as ImageIcon, Download, Loader2, Music, ChevronUp, ChevronDown, Flame, Activity as ActivityIcon, Gauge, Feather, Signal, Maximize, Minimize, Megaphone, PenTool, Map as MapIcon, Layers, TrendingUp, ZoomIn, ZoomOut, Focus, Rocket } from 'lucide-react';
 import * as L from 'leaflet';
 import { SocialShareModal } from './SocialShareModal';
 
@@ -11,48 +11,6 @@ interface LiveRunProps {
   currentUser?: Member;
   playSound?: (type: SoundType) => void;
 }
-
-// ... (SpotifyPlayer code remains the same) ...
-const SpotifyPlayer = memo(({ embedId, isExpanded, onToggle }: { embedId: string, isExpanded: boolean, onToggle: () => void }) => {
-    return (
-        <div 
-            className={`absolute bottom-36 left-4 right-4 z-30 transition-all duration-500 ease-in-out ${isExpanded ? 'h-[350px]' : 'h-[80px]'}`}
-        >
-            <div className="w-full h-full bg-black rounded-2xl overflow-hidden shadow-2xl border border-gray-800 flex flex-col">
-                <div 
-                    className="bg-gray-900/90 backdrop-blur-md p-2 flex justify-between items-center cursor-pointer border-b border-gray-800"
-                    onClick={onToggle}
-                >
-                    <div className="flex items-center gap-2">
-                        <Music size={14} className="text-green-500" />
-                        <span className="text-[10px] font-bold text-gray-300 uppercase tracking-wider">Spotify Station</span>
-                    </div>
-                    <button className="text-gray-400 hover:text-white transition-colors">
-                        {isExpanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-                    </button>
-                </div>
-                <div className="flex-1 bg-black relative">
-                    {!isExpanded && (
-                        <div 
-                            className="absolute inset-0 z-10 bg-transparent cursor-pointer"
-                            onClick={onToggle}
-                        ></div>
-                    )}
-                    <iframe 
-                        src={`https://open.spotify.com/embed/playlist/${embedId}?utm_source=generator&theme=0`} 
-                        width="100%" 
-                        height="100%" 
-                        frameBorder="0" 
-                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-                        loading="eager"
-                        title="Spotify Player"
-                        className="w-full h-full"
-                    ></iframe>
-                </div>
-            </div>
-        </div>
-    );
-}, (prev, next) => prev.embedId === next.embedId && prev.isExpanded === next.isExpanded);
 
 const WIND_PATTERNS: Record<WorkoutMode, { 
     title: string; 
@@ -102,7 +60,7 @@ const WIND_PATTERNS: Record<WorkoutMode, {
         pattern: "bg-gradient-to-br from-red-900/40 to-purple-900/20",
         description: "Tiros curtos e violentos. Elevando o VO2 Max ao limite.",
         hexColor: "#ef4444",
-        spotifyEmbedId: "37i9dQZF1DX6GwdWRQMQpq"
+        spotifyEmbedId: "37i9dQZF1DX6GwdWRQMQMQpq"
     },
     long_run: { 
         title: "Corrente de Jato", 
@@ -596,27 +554,6 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       return `${m}'${s.toString().padStart(2,'0')}"`;
   };
 
-  // Generate Sparkline Path for Pace Graph
-  const getPacePath = () => {
-      if (paceHistory.length < 2) return "";
-      const maxVal = Math.max(...paceHistory, 600); // Cap at 10min/km for scale
-      const minVal = Math.min(...paceHistory.filter(p => p > 0), 180); // Cap low at 3min/km
-      const range = maxVal - minVal || 1;
-      
-      const width = 100; // percentages
-      const height = 100;
-      
-      const points = paceHistory.map((val, i) => {
-          const x = (i / (paceHistory.length - 1)) * width;
-          const normVal = val === 0 ? maxVal : val; // Treat 0 (stop) as slow
-          const y = ((normVal - minVal) / range) * height; 
-          const yClamped = Math.max(0, Math.min(100, y));
-          return `${x},${yClamped}`;
-      }).join(' ');
-      
-      return `M ${points}`;
-  };
-
   // Calculate Pace Visual Feedback
   const getPaceColor = () => {
       if (!currentPace || !avgPace) return 'text-white';
@@ -650,7 +587,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                       <div className="p-2 bg-gray-800 rounded-lg border border-gray-700">
                           <Cloud className="text-gray-400" size={20} />
                       </div>
-                      <h2 className="text-3xl font-black text-white uppercase tracking-tighter font-teko">Sala de Controle</h2>
+                      <h2 className="text-3xl font-black text-white uppercase tracking-tighter font-mono">Sala de Controle</h2>
                   </div>
                   <p className="text-gray-500 text-xs font-bold tracking-widest uppercase pl-1">Configuração de Voo</p>
               </div>
@@ -680,7 +617,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                                             <cfg.icon size={28} className={isSelected ? 'text-white' : 'text-gray-500'} />
                                         </div>
                                         {isSelected && (
-                                            <button onClick={(e) => { e.stopPropagation(); startRun(); }} className="bg-white text-black font-black text-xs uppercase tracking-widest py-4 rounded-xl shadow-xl flex items-center justify-center gap-2 hover:scale-105 transition-transform">
+                                            <button onClick={(e) => { e.stopPropagation(); startRun(); }} className="bg-white text-black font-black text-xs uppercase tracking-widest py-4 rounded-xl shadow-xl flex items-center justify-center gap-2 hover:scale-105 transition-transform active:scale-95">
                                                 <Play fill="black" size={16} /> INICIAR SESSÃO
                                             </button>
                                         )}
@@ -702,6 +639,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
 
       return (
           <div className="fixed inset-0 bg-black z-[100] flex flex-col select-none overflow-hidden">
+              
               {/* Map Background Layer */}
               <div className={`absolute inset-0 z-0 transition-opacity duration-500 ${isMapMode ? 'opacity-100' : 'opacity-40 grayscale-[50%]'}`}>
                   <LiveMap route={route} isPaused={isPaused} onRef={(map) => mapRef.current = map} />
@@ -775,14 +713,14 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                           <div className="grid grid-cols-1 gap-2 text-center">
                               <div>
                                   <span className="text-[10px] text-gray-400 uppercase font-bold tracking-[0.2em]">Distância</span>
-                                  <div className="text-[6rem] font-black text-white italic tracking-tighter leading-none drop-shadow-2xl font-teko">
+                                  <div className="text-[6rem] font-black text-white italic tracking-tighter leading-none drop-shadow-2xl font-mono">
                                       {distance.toFixed(2)}
                                       <span className="text-4xl text-amber-500 not-italic ml-2 font-sans">km</span>
                                   </div>
                               </div>
                               <div>
                                   <div className="inline-block bg-gray-900/50 backdrop-blur px-4 py-1 rounded-full border border-white/10">
-                                      <span className="text-4xl font-mono font-bold text-gray-200 tracking-tight font-teko">{formatTime(elapsedSeconds)}</span>
+                                      <span className="text-4xl font-mono font-bold text-gray-200 tracking-tight">{formatTime(elapsedSeconds)}</span>
                                   </div>
                               </div>
                           </div>
@@ -810,7 +748,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                                           <ActivityIcon size={14} className={currentPace > 0 ? "text-amber-500 animate-pulse" : "text-gray-500"} />
                                           <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Pace Atual</span>
                                       </div>
-                                      <div className={`text-5xl font-black ${paceColor} transition-colors duration-500 font-teko`}>{formatPace(currentPace)}</div>
+                                      <div className={`text-5xl font-black ${paceColor} transition-colors duration-500 font-mono`}>{formatPace(currentPace)}</div>
                                       <div className="text-[9px] text-gray-500 uppercase font-bold mt-1">min/km</div>
                                   </div>
                               </div>
@@ -821,7 +759,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                                       <Mountain size={14} className="text-green-500" />
                                       <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Elevação</span>
                                   </div>
-                                  <div className="text-5xl font-black text-white font-teko">{elevationGain.toFixed(0)}<span className="text-lg text-gray-500 ml-1 font-sans">m</span></div>
+                                  <div className="text-5xl font-black text-white font-mono">{elevationGain.toFixed(0)}<span className="text-lg text-gray-500 ml-1 font-sans">m</span></div>
                                   <div className="text-[9px] text-gray-500 uppercase font-bold mt-1">Ganho Total</div>
                               </div>
                           </div>
@@ -830,11 +768,11 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                           <div className="grid grid-cols-2 gap-4 px-2">
                               <div className="flex justify-between items-center border-b border-gray-800 pb-2">
                                   <span className="text-xs text-gray-500 font-bold uppercase">Pace Médio</span>
-                                  <span className="text-xl font-mono font-bold text-gray-300 font-teko">{formatPace(avgPace)}</span>
+                                  <span className="text-xl font-mono font-bold text-gray-300">{formatPace(avgPace)}</span>
                               </div>
                               <div className="flex justify-between items-center border-b border-gray-800 pb-2">
                                   <span className="text-xs text-gray-500 font-bold uppercase">Calorias</span>
-                                  <span className="text-xl font-mono font-bold text-orange-400 font-teko">{calories} kcal</span>
+                                  <span className="text-xl font-mono font-bold text-orange-400">{calories} kcal</span>
                               </div>
                           </div>
                       </div>
