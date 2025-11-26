@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Member, Season, RaceEvent, Story, SoundType, Activity } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, AreaChart, Area } from 'recharts';
 import { ActivityLogger } from './ActivityLogger';
-import { Sun, CloudRain, Wind, Rocket, Bot, Crown, Heart, Zap, TrendingUp, Plus, ChevronRight, MapPin, Footprints, Calendar, Activity as ActivityIcon, Printer, FileText, Timer } from 'lucide-react';
+import { Sun, CloudRain, Wind, Rocket, Bot, Crown, Heart, Zap, TrendingUp, Plus, ChevronRight, MapPin, Footprints, Calendar, Activity as ActivityIcon, Printer, FileText, Timer, Info, Award } from 'lucide-react';
 import { SocialShareModal } from './SocialShareModal';
 
 interface DashboardProps {
@@ -40,14 +40,15 @@ const paceToSeconds = (pace: string): number => {
 const formatSecondsToPace = (totalSeconds: number) => {
     const m = Math.floor(totalSeconds / 60);
     const s = Math.round(totalSeconds % 60);
-    return `${m}'${s.toString().padStart(2, '0')}"`;
+    return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
 const formatSecondsToTime = (totalSeconds: number) => {
     const h = Math.floor(totalSeconds / 3600);
     const m = Math.floor((totalSeconds % 3600) / 60);
-    if (h > 0) return `${h}h ${m}m`;
-    return `${m}m ${Math.round(totalSeconds % 60)}s`;
+    const s = Math.round(totalSeconds % 60);
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
 const getGreeting = () => {
@@ -139,9 +140,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const bestRun = currentUser.activities
         .filter(a => a.distanceKm >= 3) // Minimum 3km to predict
         .sort((a, b) => {
-            const paceA = paceToSeconds(a.pace);
-            const paceB = paceToSeconds(b.pace);
-            return paceA - paceB; // Lower pace is better
+            // Sort by highest efficiency: (Distance / PaceSeconds)
+            // Or simpler: Sort by distance desc, then pace asc.
+            // Let's pick the longest run that has a decent pace.
+            return b.distanceKm - a.distanceKm; 
         })[0];
 
       if (!bestRun) return [];
@@ -151,14 +153,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       const predict = (distTarget: number) => {
           const t2 = t1 * Math.pow((distTarget / d1), 1.06);
-          return formatSecondsToTime(t2);
+          const paceSeconds = t2 / distTarget;
+          return {
+              time: formatSecondsToTime(t2),
+              pace: formatSecondsToPace(paceSeconds)
+          };
       };
 
       return [
-          { dist: '5 km', time: predict(5) },
-          { dist: '10 km', time: predict(10) },
-          { dist: '21 km', time: predict(21.097) },
-          { dist: '42 km', time: predict(42.195) }
+          { dist: '5', unit: 'km', ...predict(5) },
+          { dist: '10', unit: 'km', ...predict(10) },
+          { dist: '21,1', unit: 'km', ...predict(21.097) },
+          { dist: '42,2', unit: 'km', ...predict(42.195) }
       ];
   };
 
@@ -370,21 +376,54 @@ export const Dashboard: React.FC<DashboardProps> = ({
   );
 
   const PredictionsCard = () => (
-      <div className="bg-gradient-to-br from-purple-900 to-indigo-900 text-white rounded-3xl p-6 relative overflow-hidden shadow-lg col-span-1 border border-purple-500/30">
-          <div className="absolute top-0 right-0 p-4 opacity-10"><Timer size={80} /></div>
-          <h3 className="font-bold text-lg mb-4 flex items-center gap-2 relative z-10">
-              <Timer className="text-purple-400" /> Previsão de Tempos
-          </h3>
-          <div className="space-y-3 relative z-10">
+      <div className="bg-[#1a1a1a] text-white rounded-3xl p-6 relative overflow-hidden shadow-lg col-span-1 border border-gray-800 flex flex-col justify-between group">
+          {/* Top Header */}
+          <div className="flex items-start justify-between mb-4 relative z-10">
+              <div className="flex items-center gap-3">
+                  <div className="bg-gradient-to-br from-orange-500 to-red-600 p-2 rounded-lg shadow-lg shadow-orange-500/20">
+                      <Award size={20} className="text-white" />
+                  </div>
+                  <div>
+                      <h3 className="font-bold text-lg text-white leading-tight">Previsões de<br/>desempenho</h3>
+                  </div>
+              </div>
+              {/* Info Tooltip */}
+              <div className="group/info relative">
+                  <Info size={16} className="text-gray-500 hover:text-orange-500 cursor-pointer transition-colors" />
+                  <div className="absolute right-0 w-48 p-3 bg-gray-800 text-xs text-gray-300 rounded-xl shadow-xl border border-gray-700 opacity-0 group-hover/info:opacity-100 transition-opacity pointer-events-none group-hover/info:pointer-events-auto z-50 -bottom-2 translate-y-full">
+                      Baseado na <strong>Fórmula de Riegel</strong> (T2 = T1 × (D2/D1)^1.06) usando seu melhor desempenho recente.
+                  </div>
+              </div>
+          </div>
+
+          {/* Predictions Grid */}
+          <div className="grid grid-cols-2 gap-4 relative z-10 flex-1">
               {predictions.length > 0 ? predictions.map((pred, i) => (
-                  <div key={i} className="flex justify-between items-center bg-white/10 p-2 rounded-lg backdrop-blur-sm border border-white/5">
-                      <span className="text-xs font-bold text-purple-200 uppercase tracking-wider">{pred.dist}</span>
-                      <span className="font-mono font-bold text-white">{pred.time}</span>
+                  <div key={i} className="flex flex-col items-center justify-center text-center">
+                      {/* Starburst Badge */}
+                      <div className="relative w-14 h-14 flex items-center justify-center mb-1 group-hover:scale-105 transition-transform duration-500">
+                          <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full text-orange-500 drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth="3">
+                              {/* Simple Starburst Path */}
+                              <path d="M50 2 L58 28 L85 28 L65 48 L75 75 L50 60 L25 75 L35 48 L15 28 L42 28 Z" strokeLinejoin="round" className="animate-pulse" style={{animationDuration: '3s'}} />
+                          </svg>
+                          <div className="relative z-10 flex flex-col items-center leading-none pt-1">
+                              <span className="text-lg font-black text-orange-500">{pred.dist}</span>
+                              <span className="text-[8px] font-bold text-orange-400 uppercase">{pred.unit}</span>
+                          </div>
+                      </div>
+                      
+                      <div className="text-2xl font-black text-white tracking-tight">{pred.time}</div>
+                      <div className="text-[10px] text-gray-400 font-medium">{pred.pace} /km</div>
                   </div>
               )) : (
-                  <p className="text-xs text-purple-200 text-center py-4">Corra mais para gerar previsões.</p>
+                  <div className="col-span-2 text-center text-gray-500 text-xs py-10 px-4">
+                      Registre mais atividades para desbloquear previsões precisas.
+                  </div>
               )}
           </div>
+          
+          {/* Background Glow */}
+          <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-orange-600/20 rounded-full blur-[50px] pointer-events-none"></div>
       </div>
   );
 

@@ -731,6 +731,28 @@ const App: React.FC = () => {
       setActiveTab('dashboard');
   };
 
+  const handleDeleteActivity = async (activityId: string) => {
+      const updatedActivities = currentUser.activities.filter(a => a.id !== activityId);
+      // Recalculate total distance
+      const newTotalDist = updatedActivities.reduce((acc, curr) => acc + curr.distanceKm, 0);
+      
+      const updatedUser = {
+          ...currentUser,
+          activities: updatedActivities,
+          totalDistance: newTotalDist
+      };
+
+      try {
+          if (isFirebaseInitialized) {
+              await updateDoc(doc(db, 'members', currentUser.id), updatedUser);
+          }
+          setMembers(prev => prev.map(m => m.id === currentUser.id ? updatedUser : m));
+          playUISound('success');
+      } catch (e) {
+          setMembers(prev => prev.map(m => m.id === currentUser.id ? updatedUser : m));
+      }
+  };
+
   const handleAddMember = async (name: string, plan: PlanType, gender?: 'male' | 'female') => {
     let proExpiresAt = undefined;
     if (plan === 'pro') {
@@ -988,7 +1010,13 @@ const App: React.FC = () => {
             />
         );
       case 'history':
-        return <ActivityHistory currentUser={currentUser} isDark={theme === 'dark'} />;
+        return (
+            <ActivityHistory 
+                currentUser={currentUser} 
+                isDark={theme === 'dark'} 
+                onDeleteActivity={handleDeleteActivity}
+            />
+        );
       case 'season':
         return <Seasons season={currentSeason} members={members} onViewLeaderboard={() => setActiveTab('leaderboard')} />;
       case 'plans':
