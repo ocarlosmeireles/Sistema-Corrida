@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Member, Activity, RoutePoint } from '../types';
-import { MapPin, Calendar, Clock, Zap, Download, Database, FileText, Share2 } from 'lucide-react';
+import { Member, Activity } from '../types';
+import { Calendar, Download, Database, FileText } from 'lucide-react';
 import { LiveMap } from './LiveRun';
 
 interface ActivityHistoryProps {
@@ -75,9 +75,9 @@ export const ActivityHistory: React.FC<ActivityHistoryProps> = ({ currentUser, i
         </div>
         <button 
           onClick={handleExportAllData}
-          className="flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3 rounded-xl font-bold text-sm hover:opacity-90 transition-all shadow-lg hover:scale-105"
+          className="flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity shadow-lg"
         >
-          <Database size={16} /> Exportar Dados (JSON)
+          <Database size={16} /> Backup Completo (JSON)
         </button>
       </div>
 

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LayoutDashboard, Trophy, Activity, Bot, Users, BookOpen, CalendarDays, Heart, Medal, ScrollText, PlayCircle, Wind, Sun, Moon, Flag, Settings, Menu, X, ChevronRight, LogOut, Bell, CheckCheck, Home, Trash2, Crown, History } from 'lucide-react';
+import { LayoutDashboard, Trophy, Activity, Bot, Users, BookOpen, CalendarDays, Heart, Medal, ScrollText, PlayCircle, Wind, Sun, Moon, Flag, Settings, Menu, X, ChevronRight, LogOut, Bell, CheckCheck, Home, Trash2, Crown, Clock } from 'lucide-react';
 import { Member } from '../types';
 
 interface NavigationProps {
@@ -34,12 +34,12 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'vip', icon: Crown, label: 'VIP Lounge', category: 'Principal', requiredPlan: 'pro' },
     { id: 'season', icon: Flag, label: 'Temporada', category: 'Principal' },
     { id: 'run', icon: PlayCircle, label: 'Correr', isAction: true, category: 'Ação' }, 
-    { id: 'history', icon: History, label: 'Histórico', category: 'Principal' }, // New Item
     { id: 'leaderboard', icon: Trophy, label: 'Ranking', category: 'Competição' },
     { id: 'community', icon: Heart, label: 'Social', category: 'Comunidade' },
     
     // Funcionalidades Completas
     { id: 'coach', icon: Bot, label: 'Coach IA', category: 'Performance' },
+    { id: 'history', icon: Clock, label: 'Histórico', category: 'Performance' },
     { id: 'plans', icon: ScrollText, label: 'Planilhas', category: 'Performance' },
     { id: 'activity', icon: Activity, label: 'Evolução', category: 'Performance' },
     { id: 'achievements', icon: Medal, label: 'Conquistas', category: 'Competição' },
