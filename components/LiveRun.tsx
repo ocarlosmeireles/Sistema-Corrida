@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { Activity, RoutePoint, Notification, Member, WorkoutMode, SoundType } from '../types';
-import { Play, Pause, Square, Flag, CheckCircle, Zap, Wind, Mountain, Footprints, Cloud, Tornado, Lock, Unlock, Crosshair, Mic, Target, Award, Share2, Volume2, VolumeX, X, Image as ImageIcon, Download, Loader2, Music, ChevronUp, ChevronDown, Flame, Activity as ActivityIcon, Gauge, Feather, Signal, Maximize, Minimize, Megaphone, PenTool, Map as MapIcon, Layers, TrendingUp, ZoomIn, ZoomOut, Focus, Rocket } from 'lucide-react';
+import { Play, Pause, Square, Flag, CheckCircle, Zap, Wind, Mountain, Footprints, Cloud, Tornado, Lock, Unlock, Crosshair, Mic, Target, Award, Share2, Volume2, VolumeX, X, Image as ImageIcon, Download, Loader2, Music, ChevronUp, ChevronDown, Flame, Activity as ActivityIcon, Gauge, Feather, Signal, Maximize, Minimize, Megaphone, PenTool, Map as MapIcon, Layers, TrendingUp, ZoomIn, ZoomOut, Focus, Rocket, Timer, List } from 'lucide-react';
 import * as L from 'leaflet';
 import { SocialShareModal } from './SocialShareModal';
 
@@ -84,7 +83,7 @@ const WIND_PATTERNS: Record<WorkoutMode, {
     }
 };
 
-// --- CARIOCA DICTIONARY ---
+// --- CARIOCA DICTIONARY --- (Same as before)
 const CARIOCA_DICT = {
     start: [
         "Coé rapaziada! Filhos do Vento na pista. Decola!",
@@ -144,14 +143,12 @@ const CARIOCA_DICT = {
 
 const getCariocaMessage = (category: 'start' | 'pause' | 'resume' | 'finish' | 'motivation', gender: 'male' | 'female' = 'male') => {
     let pool: string[] = [];
-    
     if (category === 'motivation') {
         const genderPhrases = gender === 'female' ? CARIOCA_DICT.motivation.female : CARIOCA_DICT.motivation.male;
         pool = [...CARIOCA_DICT.motivation.neutral, ...genderPhrases];
     } else {
         pool = CARIOCA_DICT[category];
     }
-    
     return pool[Math.floor(Math.random() * pool.length)];
 };
 
@@ -318,7 +315,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   const [isPaused, setIsPaused] = useState(false);
   
   // View Mode (Map vs Data)
-  const [viewMode, setViewMode] = useState<'data' | 'map'>('data');
+  const [viewMode, setViewMode] = useState<'data' | 'map' | 'splits'>('data');
 
   // Telemetry & Other States...
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -327,6 +324,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   const [elevationGain, setElevationGain] = useState(0);
   const [currentPace, setCurrentPace] = useState(0); // Seconds per km
   const [avgPace, setAvgPace] = useState(0); // Seconds per km
+  const [currentSpeed, setCurrentSpeed] = useState(0); // km/h
   const [route, setRoute] = useState<RoutePoint[]>([]);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [motivationalMsg, setMotivationalMsg] = useState<string | null>(null);
@@ -334,6 +332,11 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   const [runNotes, setRunNotes] = useState(''); // Notes state
   const [paceHistory, setPaceHistory] = useState<number[]>([]); // For graph visualization
   
+  // Splits Logic
+  const [splits, setSplits] = useState<{ km: number; time: number; pace: string }[]>([]);
+  const lastSplitTimeRef = useRef<number>(0);
+  const [currentSplitPace, setCurrentSplitPace] = useState(0); // Pace for current KM
+
   // Share Modal State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
@@ -420,7 +423,9 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       speak(intro);
       setRunNotes(''); // Reset notes
       setPaceHistory([]); // Reset graph
+      setSplits([]); // Reset splits
       lastKmTriggerRef.current = 0; // Reset triggers
+      lastSplitTimeRef.current = 0;
 
       setTimeout(() => {
           setScreen('active');
@@ -430,8 +435,8 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
           startTimeRef.current = Date.now();
           
           timerIntervalRef.current = window.setInterval(() => {
-              const seconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
-              setElapsedSeconds(seconds);
+              const totalSecondsNow = Math.floor((Date.now() - startTimeRef.current) / 1000);
+              setElapsedSeconds(totalSecondsNow);
               
               // Update pace graph every second
               // Use currentPaceRef to access the latest calculated pace
@@ -450,6 +455,9 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                       if(pos.coords.accuracy > 40) return; // Ignore poor signal
                       
                       const speedMps = pos.coords.speed || 0; 
+                      const kmh = speedMps * 3.6; // Convert to km/h
+                      setCurrentSpeed(kmh);
+
                       const instantPaceSec = speedMps > 0.5 ? (1000 / speedMps) : 0;
                       setCurrentPace(instantPaceSec);
                       currentPaceRef.current = instantPaceSec; // Sync ref
@@ -478,12 +486,37 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                               const newTotalDistKm = (distance * 1000 + d) / 1000;
                               setDistance(newTotalDistKm);
                               
-                              // Audio Trigger for KM milestones
-                              if (Math.floor(newTotalDistKm) > lastKmTriggerRef.current) {
+                              // Calculate distance in current split
+                              const kmReached = Math.floor(newTotalDistKm);
+                              const distInCurrentSplit = newTotalDistKm - lastKmTriggerRef.current;
+                              
+                              // Calculate current split pace (avg pace for this km so far)
+                              const timeSinceLastSplit = (Date.now() - startTimeRef.current)/1000 - lastSplitTimeRef.current;
+                              if (distInCurrentSplit > 0.05) {
+                                  setCurrentSplitPace(timeSinceLastSplit / distInCurrentSplit);
+                              }
+
+                              // Audio Trigger for KM milestones & Splits
+                              if (kmReached > lastKmTriggerRef.current) {
                                   if (playSound) playSound('success');
-                                  const kmReached = Math.floor(newTotalDistKm);
-                                  speak(`Quilômetro ${kmReached} concluído.`);
+                                  
+                                  // Record Split
+                                  const totalSecondsNow = Math.floor((Date.now() - startTimeRef.current) / 1000);
+                                  const splitTime = totalSecondsNow - lastSplitTimeRef.current;
+                                  
+                                  speak(`Quilômetro ${kmReached} concluído. Ritmo: ${formatPaceSpeech(splitTime)}`);
+
+                                  lastSplitTimeRef.current = totalSecondsNow;
+                                  
+                                  setSplits(s => [...s, { 
+                                      km: kmReached, 
+                                      time: splitTime, 
+                                      pace: formatPace(splitTime) // Pace for 1km is just time
+                                  }]);
+
                                   lastKmTriggerRef.current = kmReached;
+                                  // Reset split pace for new km
+                                  setCurrentSplitPace(0); 
                               }
 
                               const weight = currentUser?.weight || 70;
@@ -553,6 +586,12 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
       const s = Math.floor(secPerKm % 60);
       return `${m}'${s.toString().padStart(2,'0')}"`;
   };
+
+  const formatPaceSpeech = (secPerKm: number) => {
+      const m = Math.floor(secPerKm / 60);
+      const s = Math.floor(secPerKm % 60);
+      return `${m} minutos e ${s} segundos`;
+  }
 
   // Calculate Pace Visual Feedback
   const getPaceColor = () => {
@@ -635,6 +674,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
   // --- ACTIVE HUD (PROFESSIONAL MODE) ---
   if (screen === 'active') {
       const isMapMode = viewMode === 'map';
+      const isSplitsMode = viewMode === 'splits';
       const paceColor = getPaceColor();
 
       return (
@@ -693,26 +733,65 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                           <div className="w-2 h-2 rounded-full bg-red-500"></div>
                           <span className="text-[10px] font-bold uppercase">REC</span>
                       </div>
-                      <button 
-                        onClick={() => setViewMode(prev => prev === 'data' ? 'map' : 'data')}
-                        className="bg-gray-800/80 border border-gray-600 text-white p-2 rounded-lg hover:bg-gray-700 transition-colors"
-                      >
-                          {isMapMode ? <Layers size={20} /> : <MapIcon size={20} />}
-                      </button>
+                      <div className="flex gap-2">
+                          <button 
+                            onClick={() => setViewMode('splits')}
+                            className={`bg-gray-800/80 border ${isSplitsMode ? 'border-amber-500 text-amber-500' : 'border-gray-600 text-white'} p-2 rounded-lg transition-colors`}
+                          >
+                              <List size={20} />
+                          </button>
+                          <button 
+                            onClick={() => setViewMode(prev => prev === 'data' ? 'map' : 'data')}
+                            className={`bg-gray-800/80 border ${isMapMode ? 'border-amber-500 text-amber-500' : 'border-gray-600 text-white'} p-2 rounded-lg transition-colors`}
+                          >
+                              {isMapMode ? <Layers size={20} /> : <MapIcon size={20} />}
+                          </button>
+                      </div>
                   </div>
               </div>
 
               {/* HUD Content */}
               <div className={`relative z-10 flex-1 flex flex-col justify-end pb-8 px-4 transition-opacity duration-300 ${isMapMode ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                   
+                  {/* SPLITS VIEW (OVERLAY) */}
+                  {isSplitsMode && (
+                      <div className="absolute inset-4 bottom-24 bg-black/90 backdrop-blur-xl rounded-3xl border border-gray-800 p-6 overflow-y-auto custom-scrollbar z-20 animate-fade-in">
+                          <div className="flex justify-between items-center mb-6">
+                              <h3 className="text-xl font-black text-white uppercase italic flex items-center gap-2"><Flag size={20} className="text-amber-500"/> Parciais</h3>
+                              <button onClick={() => setViewMode('data')} className="p-2 bg-gray-800 rounded-full text-white"><X size={16}/></button>
+                          </div>
+                          <table className="w-full text-left">
+                              <thead className="text-xs text-gray-500 uppercase font-bold border-b border-gray-800">
+                                  <tr>
+                                      <th className="pb-2">KM</th>
+                                      <th className="pb-2">Pace</th>
+                                      <th className="pb-2 text-right">Tempo</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="text-sm text-gray-300 font-mono">
+                                  {splits.length === 0 && (
+                                      <tr><td colSpan={3} className="py-8 text-center text-gray-600 italic">Corra 1km para registrar parciais.</td></tr>
+                                  )}
+                                  {splits.map((s, i) => (
+                                      <tr key={i} className="border-b border-gray-800/50">
+                                          <td className="py-3 font-bold text-white">{s.km}</td>
+                                          <td className="py-3 text-amber-500">{s.pace}</td>
+                                          <td className="py-3 text-right">{formatTime(s.time)}</td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      </div>
+                  )}
+
                   {/* Stats Area - Conditional Layout based on Mode */}
-                  {!isMapMode && (
+                  {!isMapMode && !isSplitsMode && (
                       <div className="flex flex-col gap-4 mb-6">
                           
                           {/* Main Row: Distance & Time */}
                           <div className="grid grid-cols-1 gap-2 text-center">
                               <div>
-                                  <span className="text-[10px] text-gray-400 uppercase font-bold tracking-[0.2em]">Distância</span>
+                                  <span className="text-[10px] text-gray-400 uppercase font-bold tracking-[0.2em]">Distância Percorrida</span>
                                   <div className="text-[6rem] font-black text-white italic tracking-tighter leading-none drop-shadow-2xl font-mono">
                                       {distance.toFixed(2)}
                                       <span className="text-4xl text-amber-500 not-italic ml-2 font-sans">km</span>
@@ -725,7 +804,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                               </div>
                           </div>
 
-                          {/* Pace & Elevation Graph Area */}
+                          {/* Pace & Speed Graph Area */}
                           <div className="grid grid-cols-2 gap-4 mt-2">
                               {/* PACE CARD with Sparkline Background */}
                               <div className={`relative bg-gray-900/60 backdrop-blur-md rounded-3xl p-5 border border-gray-700 overflow-hidden ${currentPace > 0 && currentPace < 300 ? 'shadow-[0_0_15px_rgba(245,158,11,0.3)] border-amber-500/50' : ''}`}>
@@ -753,14 +832,16 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                                   </div>
                               </div>
 
-                              {/* ELEVATION CARD */}
+                              {/* SPEED / SPLIT CARD */}
                               <div className="bg-gray-900/60 backdrop-blur-md rounded-3xl p-5 border border-gray-700 flex flex-col justify-center">
                                   <div className="flex items-center gap-2 mb-1">
-                                      <Mountain size={14} className="text-green-500" />
-                                      <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Elevação</span>
+                                      <Gauge size={14} className="text-blue-500" />
+                                      <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Velocidade</span>
                                   </div>
-                                  <div className="text-5xl font-black text-white font-mono">{elevationGain.toFixed(0)}<span className="text-lg text-gray-500 ml-1 font-sans">m</span></div>
-                                  <div className="text-[9px] text-gray-500 uppercase font-bold mt-1">Ganho Total</div>
+                                  <div className="text-5xl font-black text-white font-mono">{currentSpeed.toFixed(1)}<span className="text-lg text-gray-500 ml-1 font-sans">km/h</span></div>
+                                  <div className="flex items-center gap-1 text-[9px] text-gray-500 uppercase font-bold mt-1 text-amber-500">
+                                      <Timer size={10} /> Ritmo da Volta: {formatPace(currentSplitPace)}
+                                  </div>
                               </div>
                           </div>
 
@@ -771,7 +852,7 @@ export const LiveRun: React.FC<LiveRunProps> = ({ onSaveActivity, addNotificatio
                                   <span className="text-xl font-mono font-bold text-gray-300">{formatPace(avgPace)}</span>
                               </div>
                               <div className="flex justify-between items-center border-b border-gray-800 pb-2">
-                                  <span className="text-xs text-gray-500 font-bold uppercase">Calorias</span>
+                                  <span className="text-xs text-gray-500 font-bold uppercase">Calorias Queimadas</span>
                                   <span className="text-xl font-mono font-bold text-orange-400">{calories} kcal</span>
                               </div>
                           </div>

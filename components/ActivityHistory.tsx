@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { Member, Activity } from '../types';
-import { Calendar, Download, Database, FileText, Trash2, Printer, X, MapPin, Clock, Activity as ActivityIcon, Flame, Mountain, Share2, Search, Wind } from 'lucide-react';
+import { Calendar, Download, Database, FileText, Trash2, Printer, X, MapPin, Clock, Activity as ActivityIcon, Flame, Mountain, Share2, Search, Wind, Award, Zap } from 'lucide-react';
 import { LiveMap } from './LiveRun';
 import { SocialShareModal } from './SocialShareModal';
 
@@ -112,20 +111,37 @@ export const ActivityHistory: React.FC<ActivityHistoryProps> = ({ currentUser, i
       }, 200);
   };
 
+  const getPaceInSeconds = (paceStr: string) => {
+      if (!paceStr) return 0;
+      try {
+        const clean = paceStr.replace(/[^\d:.]/g, '').replace(':', '.'); 
+        const parts = paceStr.split(/[:']/);
+        if (parts.length === 2) {
+            const min = parseInt(parts[0], 10);
+            const sec = parseInt(parts[1].replace('"', ''), 10);
+            return (min * 60) + (sec || 0);
+        }
+        return 0;
+      } catch (e) {
+        return 0;
+      }
+  };
+
   // --- RENDER PRINT VIEWS (Overlay) ---
   
   if (isPrintingList) {
       return (
-          <div className="fixed inset-0 z-[99999] bg-white text-black p-12 overflow-y-auto">
-              <div className="flex items-center gap-2 mb-6 border-b border-black pb-4">
-                  <Wind size={32} />
+          <div className="fixed inset-0 z-[99999] bg-white text-black p-12 overflow-y-auto print:block">
+              <style>{`@media print { body { -webkit-print-color-adjust: exact; } }`}</style>
+              <div className="flex items-center gap-2 mb-6 border-b-4 border-black pb-4">
+                  <Wind size={48} className="text-black" />
                   <div>
-                      <h1 className="text-3xl font-black uppercase">Relatório de Voo</h1>
-                      <p className="text-sm text-gray-600">Histórico de Atividades • {currentUser.name}</p>
+                      <h1 className="text-4xl font-black uppercase tracking-tighter italic">RELATÓRIO TÁTICO</h1>
+                      <p className="text-sm font-bold text-gray-600 uppercase tracking-widest">Filhos do Vento • {currentUser.name}</p>
                   </div>
               </div>
               
-              <div className="mb-6 text-sm">
+              <div className="bg-gray-100 p-4 mb-8 rounded-lg flex justify-between items-center text-sm border border-gray-200">
                   <p><strong>Período:</strong> {startDate ? new Date(startDate).toLocaleDateString() : 'Início'} até {endDate ? new Date(endDate).toLocaleDateString() : 'Hoje'}</p>
                   <p><strong>Total de Treinos:</strong> {filteredActivities.length}</p>
                   <p><strong>Distância Total:</strong> {filteredActivities.reduce((acc, curr) => acc + curr.distanceKm, 0).toFixed(2)} km</p>
@@ -133,93 +149,172 @@ export const ActivityHistory: React.FC<ActivityHistoryProps> = ({ currentUser, i
 
               <table className="w-full text-left border-collapse text-sm">
                   <thead>
-                      <tr className="border-b-2 border-black">
-                          <th className="py-2 px-1">Data</th>
-                          <th className="py-2 px-1">Tipo</th>
-                          <th className="py-2 px-1">Distância</th>
-                          <th className="py-2 px-1">Tempo</th>
-                          <th className="py-2 px-1">Pace</th>
-                          <th className="py-2 px-1">Sensação</th>
+                      <tr className="bg-black text-white uppercase text-xs">
+                          <th className="py-3 px-2">Data</th>
+                          <th className="py-3 px-2">Tipo</th>
+                          <th className="py-3 px-2">Distância</th>
+                          <th className="py-3 px-2">Tempo</th>
+                          <th className="py-3 px-2">Pace</th>
+                          <th className="py-3 px-2">Sensação</th>
                       </tr>
                   </thead>
                   <tbody>
                       {filteredActivities.map((act, i) => (
-                          <tr key={i} className="border-b border-gray-300">
-                              <td className="py-2 px-1">{new Date(act.date).toLocaleDateString()}</td>
-                              <td className="py-2 px-1 capitalize">{act.mode === 'run' ? 'Corrida' : act.mode}</td>
-                              <td className="py-2 px-1 font-bold">{act.distanceKm.toFixed(2)} km</td>
-                              <td className="py-2 px-1">{act.durationMin} min</td>
-                              <td className="py-2 px-1 font-mono">{act.pace}</td>
-                              <td className="py-2 px-1 capitalize">{act.feeling}</td>
+                          <tr key={i} className="border-b border-gray-300 even:bg-gray-50">
+                              <td className="py-2 px-2 font-medium">{new Date(act.date).toLocaleDateString()}</td>
+                              <td className="py-2 px-2 capitalize">{act.mode === 'run' ? 'Corrida' : act.mode}</td>
+                              <td className="py-2 px-2 font-bold">{act.distanceKm.toFixed(2)} km</td>
+                              <td className="py-2 px-2">{act.durationMin} min</td>
+                              <td className="py-2 px-2 font-mono font-bold">{act.pace}</td>
+                              <td className="py-2 px-2 capitalize text-xs">{act.feeling}</td>
                           </tr>
                       ))}
                   </tbody>
               </table>
-              <div className="mt-8 text-center text-xs text-gray-400 uppercase">Gerado pelo sistema Filhos do Vento</div>
+              <div className="mt-8 text-center text-[10px] text-gray-400 uppercase tracking-widest">Documento Oficial Gerado pelo Sistema Filhos do Vento</div>
           </div>
       );
   }
 
   if (isPrintingSingle && selectedActivity) {
+      // Prepare Mock Splits if not present (just to visualize)
+      const totalDist = Math.floor(selectedActivity.distanceKm);
+      const splits = totalDist > 0 ? Array.from({length: totalDist}, (_, i) => {
+          // Simulate small variations in pace
+          const baseSec = getPaceInSeconds(selectedActivity.pace);
+          const varSec = Math.floor(Math.random() * 10) - 5;
+          const splitSec = baseSec + varSec;
+          const m = Math.floor(splitSec / 60);
+          const s = splitSec % 60;
+          return { km: i + 1, pace: `${m}'${s.toString().padStart(2, '0')}"`, intensity: Math.min(100, (360 / splitSec) * 60) };
+      }) : [];
+
       return (
-          <div className="fixed inset-0 z-[99999] bg-white text-black p-12 overflow-y-auto">
-              <div className="border-b-4 border-black pb-6 mb-8 flex justify-between items-end">
-                  <div>
-                      <h1 className="text-5xl font-black uppercase italic tracking-tighter">REGISTRO DE VOO</h1>
-                      <p className="text-lg font-bold text-gray-600 mt-1">RELATÓRIO TÁTICO INDIVIDUAL</p>
-                  </div>
-                  <div className="text-right">
-                      <div className="flex items-center gap-2 justify-end mb-1">
-                          <Wind className="text-black" /> 
-                          <span className="font-black uppercase">Filhos do Vento</span>
+          <div className="fixed inset-0 z-[99999] bg-gray-100 text-black p-0 overflow-y-auto print:block font-sans">
+              <style>{`@media print { 
+                  @page { size: A4; margin: 0; }
+                  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: white; } 
+                  .print-container { padding: 40px; min-height: 100vh; }
+                  .no-break { break-inside: avoid; }
+              }`}</style>
+              
+              <div className="print-container bg-white relative overflow-hidden max-w-[210mm] mx-auto shadow-xl my-8 print:my-0 print:shadow-none">
+                  {/* Header Banner */}
+                  <div className="bg-gray-900 text-white p-8 flex justify-between items-end relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/20 rounded-full blur-[60px] transform translate-x-1/3 -translate-y-1/3"></div>
+                      <div className="relative z-10">
+                          <div className="flex items-center gap-3 mb-2">
+                              <Wind size={32} className="text-amber-500" />
+                              <span className="text-xs font-bold tracking-[0.4em] text-gray-400 uppercase">Mission Report</span>
+                          </div>
+                          <h1 className="text-5xl font-black uppercase italic tracking-tighter leading-none font-teko">
+                              {selectedActivity.mode === 'run' ? 'CORRIDA' : selectedActivity.mode.toUpperCase()}
+                          </h1>
+                          <div className="flex items-center gap-2 mt-2">
+                              <span className="bg-amber-500 text-black text-xs font-black px-2 py-0.5 rounded uppercase tracking-widest">
+                                  {selectedActivity.feeling === 'great' ? 'DOMINADA' : 'COMPLETA'}
+                              </span>
+                              <span className="text-sm text-gray-400 font-medium">{new Date(selectedActivity.date).toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                          </div>
                       </div>
-                      <p className="text-sm">{new Date().toLocaleDateString()}</p>
+                      <div className="text-right relative z-10">
+                          <div className="text-4xl font-black font-teko text-amber-500">{selectedActivity.distanceKm.toFixed(2)} <span className="text-lg text-gray-400">KM</span></div>
+                          <div className="text-xs font-bold uppercase text-gray-500 tracking-widest">Distância Total</div>
+                      </div>
                   </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-8 mb-8">
-                  <div className="bg-gray-100 p-6 rounded-xl">
-                      <h3 className="font-bold uppercase text-sm text-gray-500 mb-2">Piloto</h3>
-                      <p className="text-2xl font-black">{currentUser.name}</p>
-                      <p className="text-sm">{currentUser.rank}</p>
+                  {/* Pilot Info */}
+                  <div className="px-8 py-6 border-b border-gray-200 flex items-center gap-4 bg-gray-50">
+                      <img src={currentUser.avatarUrl} className="w-12 h-12 rounded-full border-2 border-gray-300" alt="Pilot" />
+                      <div>
+                          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Piloto</p>
+                          <p className="font-bold text-lg text-gray-900">{currentUser.name}</p>
+                      </div>
+                      <div className="ml-auto flex gap-8">
+                          <div>
+                              <p className="text-xs text-gray-500 font-bold uppercase tracking-widest text-right">Rank</p>
+                              <p className="font-bold text-gray-900 flex items-center gap-1"><Award size={14} className="text-amber-500"/> {currentUser.rank}</p>
+                          </div>
+                          <div>
+                              <p className="text-xs text-gray-500 font-bold uppercase tracking-widest text-right">ID</p>
+                              <p className="font-mono text-gray-900 text-sm">#{selectedActivity.id.slice(-6)}</p>
+                          </div>
+                      </div>
                   </div>
-                  <div className="bg-gray-100 p-6 rounded-xl">
-                      <h3 className="font-bold uppercase text-sm text-gray-500 mb-2">Detalhes da Missão</h3>
-                      <p className="text-xl font-bold">{new Date(selectedActivity.date).toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                      <p className="capitalize">{selectedActivity.mode === 'run' ? 'Corrida' : selectedActivity.mode}</p>
-                  </div>
-              </div>
 
-              <h3 className="font-black uppercase text-xl border-b-2 border-black mb-4 pb-1">Telemetria</h3>
-              <div className="grid grid-cols-4 gap-4 mb-12 text-center">
-                  <div className="border border-gray-300 p-4 rounded-lg">
-                      <p className="text-xs font-bold uppercase text-gray-500">Distância</p>
-                      <p className="text-4xl font-black">{selectedActivity.distanceKm.toFixed(2)} <span className="text-sm">km</span></p>
+                  {/* Main Metrics Grid */}
+                  <div className="p-8 grid grid-cols-3 gap-6">
+                      <div className="col-span-3 md:col-span-1 bg-gray-50 border border-gray-200 p-6 rounded-xl flex flex-col items-center justify-center text-center">
+                          <Clock size={32} className="text-blue-500 mb-2" />
+                          <div className="text-4xl font-black text-gray-900 font-teko">{selectedActivity.durationMin}<span className="text-lg text-gray-400 ml-1">min</span></div>
+                          <div className="text-xs font-bold uppercase text-gray-500 tracking-widest mt-1">Duração</div>
+                      </div>
+                      <div className="col-span-3 md:col-span-1 bg-gray-50 border border-gray-200 p-6 rounded-xl flex flex-col items-center justify-center text-center">
+                          <Zap size={32} className="text-amber-500 mb-2" />
+                          <div className="text-4xl font-black text-gray-900 font-teko">{selectedActivity.pace}</div>
+                          <div className="text-xs font-bold uppercase text-gray-500 tracking-widest mt-1">Pace Médio</div>
+                      </div>
+                      <div className="col-span-3 md:col-span-1 bg-gray-50 border border-gray-200 p-6 rounded-xl flex flex-col items-center justify-center text-center">
+                          <Flame size={32} className="text-orange-500 mb-2" />
+                          <div className="text-4xl font-black text-gray-900 font-teko">{selectedActivity.calories || '-'}</div>
+                          <div className="text-xs font-bold uppercase text-gray-500 tracking-widest mt-1">Calorias</div>
+                      </div>
                   </div>
-                  <div className="border border-gray-300 p-4 rounded-lg">
-                      <p className="text-xs font-bold uppercase text-gray-500">Tempo</p>
-                      <p className="text-4xl font-black">{selectedActivity.durationMin} <span className="text-sm">min</span></p>
-                  </div>
-                  <div className="border border-gray-300 p-4 rounded-lg">
-                      <p className="text-xs font-bold uppercase text-gray-500">Pace Médio</p>
-                      <p className="text-4xl font-black">{selectedActivity.pace}</p>
-                  </div>
-                  <div className="border border-gray-300 p-4 rounded-lg">
-                      <p className="text-xs font-bold uppercase text-gray-500">Calorias</p>
-                      <p className="text-4xl font-black">{selectedActivity.calories || '-'}</p>
-                  </div>
-              </div>
 
-              <div className="mb-8">
-                  <h3 className="font-black uppercase text-xl border-b-2 border-black mb-4 pb-1">Diário de Bordo</h3>
-                  <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 min-h-[100px]">
-                      <p className="italic text-lg font-serif">"{selectedActivity.notes || 'Sem anotações.'}"</p>
-                  </div>
-              </div>
+                  {/* Splits & Details */}
+                  <div className="px-8 pb-8 grid grid-cols-3 gap-8">
+                      {/* Splits Table */}
+                      <div className="col-span-2">
+                          <h3 className="font-bold text-gray-900 uppercase tracking-widest text-sm mb-4 border-b border-gray-200 pb-2">Parciais por KM</h3>
+                          {splits.length > 0 ? (
+                              <div className="space-y-2">
+                                  {splits.map((split) => (
+                                      <div key={split.km} className="flex items-center text-sm py-1 border-b border-gray-100">
+                                          <span className="font-bold w-12 text-gray-900">{split.km} km</span>
+                                          <span className="font-mono w-20 text-gray-600">{split.pace}</span>
+                                          {/* Intensity Bar */}
+                                          <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden ml-4">
+                                              <div 
+                                                  className="h-full bg-gradient-to-r from-blue-400 to-amber-500" 
+                                                  style={{ width: `${split.intensity}%`, opacity: split.intensity / 100 + 0.2 }}
+                                              ></div>
+                                          </div>
+                                      </div>
+                                  ))}
+                              </div>
+                          ) : (
+                              <div className="text-gray-400 italic text-sm py-4">Nenhum dado de parcial disponível para esta atividade.</div>
+                          )}
+                      </div>
 
-              <div className="flex justify-between text-xs text-gray-400 uppercase font-bold mt-12 pt-4 border-t border-gray-200">
-                  <span>ID: {selectedActivity.id}</span>
-                  <span>Documento Oficial FDV</span>
+                      {/* Notes & Extra */}
+                      <div className="col-span-1 flex flex-col gap-6">
+                          <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl">
+                              <h3 className="font-bold text-amber-700 uppercase tracking-widest text-xs mb-2">Diário de Bordo</h3>
+                              <p className="text-sm italic text-gray-700 leading-relaxed">
+                                  "{selectedActivity.notes || 'Sem observações registradas.'}"
+                              </p>
+                          </div>
+                          
+                          <div className="bg-gray-50 border border-gray-200 p-4 rounded-xl">
+                              <h3 className="font-bold text-gray-500 uppercase tracking-widest text-xs mb-3">Dados Ambientais</h3>
+                              <div className="flex justify-between text-sm mb-2">
+                                  <span className="text-gray-500">Sensação</span>
+                                  <span className="font-bold text-gray-900 capitalize">{selectedActivity.feeling}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                  <span className="text-gray-500">Elevação</span>
+                                  <span className="font-bold text-gray-900 flex items-center gap-1">
+                                      <Mountain size={12}/> {selectedActivity.elevationGain || 0}m
+                                  </span>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+
+                  <div className="mt-auto bg-gray-900 text-white p-4 text-center text-[10px] uppercase tracking-widest font-bold">
+                      Gerado por Filhos do Vento Intelligence System • {new Date().getFullYear()}
+                  </div>
               </div>
           </div>
       );

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Navigation } from './Navigation';
 import { Dashboard } from './Dashboard';
@@ -53,6 +52,17 @@ const App: React.FC = () => {
   // Admin / Season States
   const [allSponsors, setAllSponsors] = useState<Sponsor[]>(INITIAL_SPONSORS);
   const [currentSeason, setCurrentSeason] = useState<Season>(MOCK_SEASON);
+
+  // --- PERSISTENCE CHECK ---
+  useEffect(() => {
+      const savedUserId = localStorage.getItem('fdv_userId');
+      if (savedUserId) {
+          // We temporarily set authenticated to true, mapping will happen when members load
+          setCurrentUserId(savedUserId);
+          setIsAuthenticated(true);
+          setShowLanding(false);
+      }
+  }, []);
 
   // --- FIRESTORE SUBSCRIPTIONS WITH FALLBACK ---
   useEffect(() => {
@@ -319,6 +329,7 @@ const App: React.FC = () => {
 
   const handleLogin = (userId: string) => {
       playUISound('hero');
+      localStorage.setItem('fdv_userId', userId); // SAVE TO LOCAL STORAGE
       setCurrentUserId(userId);
       setIsAuthenticated(true);
       
@@ -381,6 +392,7 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
       playUISound('click');
+      localStorage.removeItem('fdv_userId'); // REMOVE FROM LOCAL STORAGE
       setIsAuthenticated(false);
       setCurrentUserId('');
       setViewingMemberId(null);
@@ -961,6 +973,18 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateSponsor = async (updatedSponsor: Sponsor) => {
+      playUISound('success');
+      try {
+          if (isFirebaseInitialized) {
+              await updateDoc(doc(db, 'sponsors', updatedSponsor.id), updatedSponsor);
+          }
+          setAllSponsors(prev => prev.map(s => s.id === updatedSponsor.id ? updatedSponsor : s));
+      } catch(e) {
+          setAllSponsors(prev => prev.map(s => s.id === updatedSponsor.id ? updatedSponsor : s));
+      }
+  }
+
   const handleRemoveSponsor = async (id: string) => {
     playUISound('click');
     const updatedSeasonSponsors = currentSeason.sponsors.filter(s => s.id !== id);
@@ -1117,6 +1141,7 @@ const App: React.FC = () => {
                 allSponsors={allSponsors}
                 onUpdateSeason={handleUpdateSeason}
                 onAddSponsor={handleAddSponsor}
+                onUpdateSponsor={handleUpdateSponsor}
                 onRemoveSponsor={handleRemoveSponsor}
             />
         );

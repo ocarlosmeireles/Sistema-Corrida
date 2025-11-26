@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { Season, Sponsor } from '../types';
-import { Settings, Plus, Trash2, Save, Gift, Calendar, Image as ImageIcon, CheckCircle, Film } from 'lucide-react';
+import { Settings, Plus, Trash2, Save, Gift, Calendar, Image as ImageIcon, CheckCircle, Film, Edit2 } from 'lucide-react';
 import { MarketingStudio } from './MarketingStudio';
 
 interface AdminPanelProps {
@@ -9,6 +8,7 @@ interface AdminPanelProps {
   allSponsors: Sponsor[];
   onUpdateSeason: (season: Season) => void;
   onAddSponsor: (sponsor: Sponsor) => void;
+  onUpdateSponsor?: (sponsor: Sponsor) => void;
   onRemoveSponsor: (id: string) => void;
 }
 
@@ -17,6 +17,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   allSponsors, 
   onUpdateSeason,
   onAddSponsor,
+  onUpdateSponsor,
   onRemoveSponsor
 }) => {
   const [activeTab, setActiveTab] = useState<'season' | 'sponsors' | 'marketing'>('season');
@@ -26,12 +27,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [seasonForm, setSeasonForm] = useState<Season>(currentSeason);
   
   // Local State for New Sponsor Form
-  const [newSponsor, setNewSponsor] = useState<Partial<Sponsor>>({
+  const [sponsorForm, setSponsorForm] = useState<Partial<Sponsor>>({
     name: '',
     logoUrl: '',
     prizeDescription: '',
     prizeImageUrl: ''
   });
+  const [editingSponsorId, setEditingSponsorId] = useState<string | null>(null);
 
   useEffect(() => {
     if (successMsg) {
@@ -61,21 +63,40 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setSuccessMsg("Configurações da temporada salvas com sucesso!");
   };
 
+  const handleEditSponsor = (sponsor: Sponsor) => {
+      setSponsorForm(sponsor);
+      setEditingSponsorId(sponsor.id);
+      // Scroll to form if needed, or just update state
+  };
+
   const saveSponsor = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newSponsor.name && newSponsor.prizeDescription) {
+    if (sponsorForm.name && sponsorForm.prizeDescription) {
         const sponsor: Sponsor = {
-            id: Date.now().toString(),
-            name: newSponsor.name!,
-            logoUrl: newSponsor.logoUrl || 'https://via.placeholder.com/150',
-            prizeDescription: newSponsor.prizeDescription!,
-            prizeImageUrl: newSponsor.prizeImageUrl || 'https://via.placeholder.com/150'
+            id: editingSponsorId || Date.now().toString(),
+            name: sponsorForm.name!,
+            logoUrl: sponsorForm.logoUrl || 'https://via.placeholder.com/150',
+            prizeDescription: sponsorForm.prizeDescription!,
+            prizeImageUrl: sponsorForm.prizeImageUrl || 'https://via.placeholder.com/150'
         };
-        onAddSponsor(sponsor);
-        setNewSponsor({ name: '', logoUrl: '', prizeDescription: '', prizeImageUrl: '' });
-        setSuccessMsg(`Patrocinador ${sponsor.name} adicionado!`);
+
+        if (editingSponsorId && onUpdateSponsor) {
+            onUpdateSponsor(sponsor);
+        } else {
+            onAddSponsor(sponsor);
+        }
+        
+        // Reset
+        setSponsorForm({ name: '', logoUrl: '', prizeDescription: '', prizeImageUrl: '' });
+        setEditingSponsorId(null);
+        setSuccessMsg(editingSponsorId ? `Patrocinador atualizado!` : `Patrocinador adicionado!`);
     }
   };
+
+  const cancelEdit = () => {
+      setSponsorForm({ name: '', logoUrl: '', prizeDescription: '', prizeImageUrl: '' });
+      setEditingSponsorId(null);
+  }
 
   return (
     <div className="space-y-8 pb-24 animate-fade-in relative">
@@ -236,10 +257,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* CONTENT: SPONSORS BANK */}
       {activeTab === 'sponsors' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Add Sponsor Form */}
-            <div className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm h-fit">
+            {/* Add/Edit Sponsor Form */}
+            <div className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm h-fit sticky top-4">
                 <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                    <Plus className="text-amber-500" /> Novo Patrocinador
+                    {editingSponsorId ? <Edit2 className="text-blue-500" /> : <Plus className="text-amber-500" />} 
+                    {editingSponsorId ? 'Editar Patrocinador' : 'Novo Patrocinador'}
                 </h3>
                 <form onSubmit={saveSponsor} className="space-y-4">
                     <div>
@@ -247,8 +269,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <input 
                             required
                             type="text" 
-                            value={newSponsor.name}
-                            onChange={(e) => setNewSponsor({...newSponsor, name: e.target.value})}
+                            value={sponsorForm.name}
+                            onChange={(e) => setSponsorForm({...sponsorForm, name: e.target.value})}
                             className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl p-3 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                             placeholder="Ex: ASICS"
                         />
@@ -259,8 +281,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <ImageIcon className="absolute left-3 top-3 text-gray-400" size={18} />
                             <input 
                                 type="text" 
-                                value={newSponsor.logoUrl}
-                                onChange={(e) => setNewSponsor({...newSponsor, logoUrl: e.target.value})}
+                                value={sponsorForm.logoUrl}
+                                onChange={(e) => setSponsorForm({...sponsorForm, logoUrl: e.target.value})}
                                 className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl p-3 pl-10 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                                 placeholder="https://..."
                             />
@@ -271,8 +293,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <input 
                             required
                             type="text" 
-                            value={newSponsor.prizeDescription}
-                            onChange={(e) => setNewSponsor({...newSponsor, prizeDescription: e.target.value})}
+                            value={sponsorForm.prizeDescription}
+                            onChange={(e) => setSponsorForm({...sponsorForm, prizeDescription: e.target.value})}
                             className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl p-3 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                             placeholder="Ex: Tênis de Corrida"
                         />
@@ -283,36 +305,59 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <Gift className="absolute left-3 top-3 text-gray-400" size={18} />
                             <input 
                                 type="text" 
-                                value={newSponsor.prizeImageUrl}
-                                onChange={(e) => setNewSponsor({...newSponsor, prizeImageUrl: e.target.value})}
+                                value={sponsorForm.prizeImageUrl}
+                                onChange={(e) => setSponsorForm({...sponsorForm, prizeImageUrl: e.target.value})}
                                 className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl p-3 pl-10 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                                 placeholder="https://..."
                             />
                         </div>
                     </div>
-                    <button 
-                        type="submit"
-                        className="w-full bg-amber-500 hover:bg-amber-400 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all"
-                    >
-                        <Plus size={20} /> Adicionar ao Banco
-                    </button>
+                    
+                    <div className="flex gap-2">
+                        {editingSponsorId && (
+                            <button 
+                                type="button"
+                                onClick={cancelEdit}
+                                className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold py-3 rounded-xl"
+                            >
+                                Cancelar
+                            </button>
+                        )}
+                        <button 
+                            type="submit"
+                            className={`flex-1 ${editingSponsorId ? 'bg-blue-600 hover:bg-blue-500' : 'bg-amber-500 hover:bg-amber-400'} text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all`}
+                        >
+                            {editingSponsorId ? <Save size={20} /> : <Plus size={20} />} 
+                            {editingSponsorId ? 'Salvar' : 'Adicionar'}
+                        </button>
+                    </div>
                 </form>
             </div>
 
             {/* Sponsors List */}
             <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 content-start">
                 {allSponsors.map(sponsor => (
-                    <div key={sponsor.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm flex flex-col">
-                        <div className="h-24 bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4 relative">
+                    <div key={sponsor.id} className={`bg-white dark:bg-gray-800 rounded-xl border ${editingSponsorId === sponsor.id ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200 dark:border-gray-700'} overflow-hidden shadow-sm flex flex-col`}>
+                        <div className="h-24 bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4 relative group">
                              <img src={sponsor.logoUrl} alt={sponsor.name} className="max-h-16 max-w-[80%] object-contain" />
-                             <button 
-                                onClick={() => {
-                                    if(window.confirm("Remover este patrocinador do banco?")) onRemoveSponsor(sponsor.id);
-                                }}
-                                className="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition-colors"
-                             >
-                                <Trash2 size={16} />
-                             </button>
+                             <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                 <button 
+                                    onClick={() => handleEditSponsor(sponsor)}
+                                    className="p-1.5 bg-white dark:bg-gray-700 rounded-lg text-blue-500 hover:text-blue-400 shadow-sm border border-gray-200 dark:border-gray-600"
+                                    title="Editar"
+                                 >
+                                    <Edit2 size={14} />
+                                 </button>
+                                 <button 
+                                    onClick={() => {
+                                        if(window.confirm("Remover este patrocinador do banco?")) onRemoveSponsor(sponsor.id);
+                                    }}
+                                    className="p-1.5 bg-white dark:bg-gray-700 rounded-lg text-gray-400 hover:text-red-500 shadow-sm border border-gray-200 dark:border-gray-600"
+                                    title="Excluir"
+                                 >
+                                    <Trash2 size={14} />
+                                 </button>
+                             </div>
                         </div>
                         <div className="p-4 flex-1 flex flex-col">
                             <h4 className="font-bold text-gray-900 dark:text-white">{sponsor.name}</h4>
