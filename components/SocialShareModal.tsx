@@ -1,6 +1,5 @@
-
 import React, { useState, useRef, useMemo } from 'react';
-import { Wind, Share2, X, Image as ImageIcon, Download, Loader2, LayoutTemplate, Zap, Type, Circle, Sun, Grid, Film, Eye, EyeOff, Map, Compass } from 'lucide-react';
+import { Wind, Share2, X, Image as ImageIcon, Loader2, LayoutTemplate, Zap, Type, Circle, Sun, Grid, Film, Eye, EyeOff, Map, Compass, Activity } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { RoutePoint } from '../types';
 
@@ -141,6 +140,10 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onCl
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+  };
+
+  const handleShareToStrava = () => {
+      alert("Simulando upload para o Strava... Sucesso!");
   };
 
   // --- RENDER TEMPLATES ---
@@ -580,8 +583,8 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onCl
                       </div>
                   </div>
 
-                  {/* CAPTURE AREA */}
-                  <div ref={cardRef} className="relative w-full aspect-[4/5] bg-black rounded-2xl overflow-hidden shadow-lg group select-none transition-all duration-500">
+                  {/* CAPTURE AREA - 9:16 ASPECT RATIO */}
+                  <div ref={cardRef} className="relative w-full aspect-[9/16] bg-black rounded-2xl overflow-hidden shadow-lg group select-none transition-all duration-500">
                       {/* Background Image */}
                       {shareImage && template !== 'neon_map' && template !== 'blueprint' ? (
                           <img src={shareImage} className="absolute inset-0 w-full h-full object-cover" alt="Background" />
@@ -643,6 +646,13 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onCl
                       )}
                       
                       <button 
+                          onClick={handleShareToStrava}
+                          className="w-full bg-[#FC4C02] hover:bg-[#E34402] text-white font-black py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg uppercase tracking-wide text-xs"
+                      >
+                          <Activity size={16} /> Upload para Strava
+                      </button>
+
+                      <button 
                           onClick={handleShare}
                           disabled={isGenerating}
                           className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-500/20 text-sm uppercase tracking-wide disabled:opacity-70"
@@ -650,7 +660,6 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onCl
                           {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <Share2 size={18} />} 
                           {isGenerating ? 'Gerando...' : 'Compartilhar / Baixar'}
                       </button>
-                      <p className="text-[10px] text-gray-500 text-center">Se o compartilhamento nativo falhar, a imagem será baixada.</p>
                   </div>
               </div>
           </div>

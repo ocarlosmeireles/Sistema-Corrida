@@ -21,23 +21,6 @@ export const TrainingPlanGenerator: React.FC<TrainingPlanGeneratorProps> = ({ cu
   const activePlan = currentUser.activePlan;
   const userPlan = currentUser.plan;
 
-  // Calculate Progress Logic
-  const calculateProgress = () => {
-    if (!activePlan) return 0;
-    const start = new Date(activePlan.createdAt).getTime();
-    const now = new Date().getTime();
-    const weeksPassed = Math.ceil((now - start) / (1000 * 60 * 60 * 24 * 7));
-    return Math.min(weeksPassed, activePlan.durationWeeks);
-  };
-
-  const progress = calculateProgress();
-  const currentWeek = progress === 0 ? 1 : progress;
-
-  // Distance covered since plan start
-  const distanceSincePlanStart = currentUser.activities
-    .filter(a => activePlan ? new Date(a.date) >= new Date(activePlan.createdAt) : false)
-    .reduce((acc, curr) => acc + curr.distanceKm, 0);
-
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (userPlan === 'basic') return;
@@ -54,7 +37,7 @@ export const TrainingPlanGenerator: React.FC<TrainingPlanGeneratorProps> = ({ cu
         id: Date.now().toString(),
         createdAt: new Date().toISOString(),
         goal: goal,
-        durationWeeks: 4, // Default hardcoded in prompt currently
+        durationWeeks: 4, 
         content: content,
         status: 'active'
     };
@@ -73,8 +56,13 @@ export const TrainingPlanGenerator: React.FC<TrainingPlanGeneratorProps> = ({ cu
         @media print {
           body * { visibility: hidden; }
           #printable-plan, #printable-plan * { visibility: visible; }
-          #printable-plan { position: absolute; left: 0; top: 0; width: 100%; color: black; background: white; padding: 20px; }
+          #printable-plan { 
+            position: absolute; left: 0; top: 0; width: 100%; 
+            color: black; background: white; padding: 40px; 
+            font-family: 'Georgia', serif; line-height: 1.6;
+          }
           .no-print { display: none !important; }
+          h1, h2, h3 { color: black !important; text-transform: uppercase; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
         }
       `}</style>
 
@@ -132,7 +120,16 @@ export const TrainingPlanGenerator: React.FC<TrainingPlanGeneratorProps> = ({ cu
         </div>
 
         {/* RESULT AREA */}
-        <div className="lg:col-span-2 h-full">
+        <div className="lg:col-span-2 h-full relative">
+            {activePlan && (
+                <button 
+                    onClick={handlePrint} 
+                    className="absolute top-4 right-4 z-10 bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 no-print"
+                    title="Imprimir / Exportar PDF"
+                >
+                    <Printer size={20} />
+                </button>
+            )}
             <div id="printable-plan" className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-fade-in shadow-md h-full flex flex-col min-h-[500px]">
                 {/* Dummy Content for Pro Gate Preview if no plan */}
                 {!activePlan && (
@@ -141,13 +138,26 @@ export const TrainingPlanGenerator: React.FC<TrainingPlanGeneratorProps> = ({ cu
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+                        <div className="text-center pt-12 text-gray-400 font-bold">Configure ao lado para gerar seu plano.</div>
                     </div>
                 )}
                 
                 {activePlan && (
-                    <div className="p-8 prose prose-amber dark:prose-invert max-w-none flex-1 overflow-y-auto custom-scrollbar">
+                    <div className="p-12 prose prose-amber dark:prose-invert max-w-none flex-1 overflow-y-auto custom-scrollbar">
+                        <div className="print:hidden mb-6 text-xs text-amber-500 font-bold uppercase tracking-widest border-b border-amber-500/20 pb-2">Visualização Digital</div>
+                        
+                        <div className="hidden print:block mb-8 border-b-2 border-black pb-4">
+                            <h1 className="text-4xl font-black uppercase mb-2">Plano de Voo</h1>
+                            <p className="text-sm font-bold uppercase tracking-widest">Filhos do Vento • {currentUser.name}</p>
+                            <p className="text-xs mt-2">Objetivo: {activePlan.goal}</p>
+                        </div>
+
                         <div className="whitespace-pre-line text-gray-700 dark:text-gray-300 leading-relaxed font-serif">
                         {activePlan.content}
+                        </div>
+
+                        <div className="hidden print:block mt-12 pt-4 border-t border-gray-300 text-center text-xs font-bold uppercase">
+                            Documento Técnico - Uso Pessoal
                         </div>
                     </div>
                 )}

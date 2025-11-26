@@ -1,7 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Member } from '../types';
-import { Crown, MessageSquare, Video, BookOpen, Star, ShieldCheck, Users } from 'lucide-react';
+import { Crown, MessageSquare, Video, BookOpen, Star, ShieldCheck, Users, Edit, Save, X } from 'lucide-react';
 
 interface ProLoungeProps {
   currentUser: Member;
@@ -9,6 +9,22 @@ interface ProLoungeProps {
 }
 
 export const ProLounge: React.FC<ProLoungeProps> = ({ currentUser, onContactSupport }) => {
+  const isAdmin = currentUser.role === 'admin' || currentUser.role === 'super_admin';
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Mock Content State (In a real app, this would come from Props/Firebase)
+  const [liveDetails, setLiveDetails] = useState({
+      date: '28/11 às 20h',
+      topic: 'Estratégia Nutricional para Longas Distâncias',
+      host: 'Dr. Nutri'
+  });
+  
+  const [featuredVideo, setFeaturedVideo] = useState({
+      title: 'Técnica de Corrida: Cadência Ideal',
+      desc: 'Aprenda como aumentar sua cadência para 180bpm pode reduzir o impacto nas articulações e melhorar sua economia de corrida.',
+      img: 'https://images.unsplash.com/photo-1552674605-46d504a04084?auto=format&fit=crop&q=80&w=1000'
+  });
+
   return (
     <div className="space-y-8 pb-24 animate-fade-in">
       {/* Hero Header */}
@@ -29,14 +45,25 @@ export const ProLounge: React.FC<ProLoungeProps> = ({ currentUser, onContactSupp
                     VIP <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-yellow-600">LOUNGE</span>
                 </h1>
                 <p className="text-gray-400 max-w-xl text-lg leading-relaxed">
-                    Bem-vindo ao quartel general da elite. Aqui você tem acesso direto ao suporte, mentorias exclusivas e conteúdos avançados para acelerar sua evolução.
+                    Bem-vindo ao quartel general da elite. Aqui você tem acesso direto ao suporte, mentorias exclusivas e conteúdos avançados.
                 </p>
             </div>
             
-            <div className="bg-white/5 backdrop-blur-md border border-amber-500/20 p-6 rounded-2xl flex flex-col items-center text-center min-w-[200px]">
-                <ShieldCheck size={40} className="text-amber-500 mb-2" />
-                <span className="text-white font-bold text-lg">Status Ativo</span>
-                <span className="text-gray-500 text-xs uppercase tracking-wider mt-1">Plano PRO</span>
+            <div className="flex flex-col items-end gap-4">
+                <div className="bg-white/5 backdrop-blur-md border border-amber-500/20 p-6 rounded-2xl flex flex-col items-center text-center min-w-[200px]">
+                    <ShieldCheck size={40} className="text-amber-500 mb-2" />
+                    <span className="text-white font-bold text-lg">Status Ativo</span>
+                    <span className="text-gray-500 text-xs uppercase tracking-wider mt-1">Plano PRO</span>
+                </div>
+                
+                {isAdmin && (
+                    <button 
+                        onClick={() => setIsEditing(!isEditing)}
+                        className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-colors border border-gray-600"
+                    >
+                        {isEditing ? <><X size={14} /> Cancelar Edição</> : <><Edit size={14} /> Configurar VIP</>}
+                    </button>
+                )}
             </div>
         </div>
       </div>
@@ -63,8 +90,8 @@ export const ProLounge: React.FC<ProLoungeProps> = ({ currentUser, onContactSupp
               </div>
           </div>
 
-          {/* Mentorship Card */}
-          <div className="bg-gradient-to-b from-gray-800 to-gray-900 rounded-2xl p-8 border border-gray-700 hover:border-blue-500/50 transition-all group relative overflow-hidden shadow-lg">
+          {/* Mentorship Card (Editable) */}
+          <div className={`bg-gradient-to-b from-gray-800 to-gray-900 rounded-2xl p-8 border transition-all group relative overflow-hidden shadow-lg ${isEditing ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-700 hover:border-blue-500/50'}`}>
               <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
                   <Video size={100} />
               </div>
@@ -73,11 +100,37 @@ export const ProLounge: React.FC<ProLoungeProps> = ({ currentUser, onContactSupp
                       <Video size={28} />
                   </div>
                   <h3 className="text-2xl font-bold text-white mb-2">Mentoria Mensal</h3>
-                  <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-                      Próxima Live: <strong>28/11 às 20h</strong>.<br/> Tema: "Estratégia Nutricional para Longas Distâncias" com Dr. Nutri.
-                  </p>
+                  
+                  {isEditing ? (
+                      <div className="space-y-2 mb-4">
+                          <input 
+                            className="w-full bg-gray-950 border border-gray-600 rounded p-2 text-xs text-white"
+                            value={liveDetails.date}
+                            onChange={e => setLiveDetails({...liveDetails, date: e.target.value})}
+                            placeholder="Data"
+                          />
+                          <input 
+                            className="w-full bg-gray-950 border border-gray-600 rounded p-2 text-xs text-white"
+                            value={liveDetails.topic}
+                            onChange={e => setLiveDetails({...liveDetails, topic: e.target.value})}
+                            placeholder="Tema"
+                          />
+                          <input 
+                            className="w-full bg-gray-950 border border-gray-600 rounded p-2 text-xs text-white"
+                            value={liveDetails.host}
+                            onChange={e => setLiveDetails({...liveDetails, host: e.target.value})}
+                            placeholder="Convidado"
+                          />
+                      </div>
+                  ) : (
+                      <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                          Próxima Live: <strong className="text-blue-400">{liveDetails.date}</strong>.<br/> 
+                          Tema: "{liveDetails.topic}" com {liveDetails.host}.
+                      </p>
+                  )}
+                  
                   <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wide transition-colors shadow-lg shadow-blue-600/20">
-                      Definir Lembrete
+                      {isEditing ? 'Salvar Rascunho' : 'Definir Lembrete'}
                   </button>
               </div>
           </div>
@@ -103,8 +156,8 @@ export const ProLounge: React.FC<ProLoungeProps> = ({ currentUser, onContactSupp
 
       </div>
 
-      {/* Exclusive Feed Section */}
-      <div className="mt-12">
+      {/* Exclusive Feed Section (Editable) */}
+      <div className={`mt-12 rounded-2xl p-1 ${isEditing ? 'border-2 border-dashed border-amber-500/50' : ''}`}>
           <div className="flex items-center gap-4 mb-6">
               <div className="h-px flex-1 bg-gray-800"></div>
               <span className="text-gray-500 font-bold uppercase text-xs tracking-widest">Destaques da Semana para PROs</span>
@@ -113,14 +166,39 @@ export const ProLounge: React.FC<ProLoungeProps> = ({ currentUser, onContactSupp
 
           <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 flex flex-col md:flex-row items-center gap-6">
               <div className="w-full md:w-1/3 h-48 bg-gray-800 rounded-xl overflow-hidden relative">
-                  <img src="https://images.unsplash.com/photo-1552674605-46d504a04084?auto=format&fit=crop&q=80&w=1000" alt="Workout" className="w-full h-full object-cover opacity-60 hover:opacity-80 transition-opacity" />
+                  <img src={featuredVideo.img} alt="Workout" className="w-full h-full object-cover opacity-60 hover:opacity-80 transition-opacity" />
                   <div className="absolute top-2 left-2 bg-amber-500 text-black text-[10px] font-bold px-2 py-1 rounded uppercase">Novo Vídeo</div>
+                  {isEditing && (
+                      <input 
+                        className="absolute bottom-2 left-2 right-2 bg-black/80 text-white text-xs p-1 border border-gray-600 rounded"
+                        value={featuredVideo.img}
+                        onChange={e => setFeaturedVideo({...featuredVideo, img: e.target.value})}
+                        placeholder="URL da Imagem"
+                      />
+                  )}
               </div>
-              <div className="flex-1">
-                  <h3 className="text-xl font-bold text-white mb-2">Técnica de Corrida: Cadência Ideal</h3>
-                  <p className="text-gray-400 text-sm mb-4">
-                      Aprenda como aumentar sua cadência para 180bpm pode reduzir o impacto nas articulações e melhorar sua economia de corrida. Análise biomecânica detalhada.
-                  </p>
+              <div className="flex-1 w-full">
+                  {isEditing ? (
+                      <div className="space-y-2">
+                          <input 
+                            className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white font-bold"
+                            value={featuredVideo.title}
+                            onChange={e => setFeaturedVideo({...featuredVideo, title: e.target.value})}
+                          />
+                          <textarea 
+                            className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-gray-300 text-sm h-24"
+                            value={featuredVideo.desc}
+                            onChange={e => setFeaturedVideo({...featuredVideo, desc: e.target.value})}
+                          />
+                      </div>
+                  ) : (
+                      <>
+                        <h3 className="text-xl font-bold text-white mb-2">{featuredVideo.title}</h3>
+                        <p className="text-gray-400 text-sm mb-4">
+                            {featuredVideo.desc}
+                        </p>
+                      </>
+                  )}
                   <button className="text-amber-500 hover:text-amber-400 text-sm font-bold underline decoration-amber-500/30 underline-offset-4">
                       Assistir Agora
                   </button>

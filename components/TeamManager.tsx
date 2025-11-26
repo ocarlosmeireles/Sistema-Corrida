@@ -248,14 +248,14 @@ export const TeamManager: React.FC<TeamManagerProps> = ({
                                     </div>
                                 ) : (
                                     <>
-                                        {canManage && (
+                                        {isSuperAdmin && (
                                             <button 
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     onSwitchUser(member.id);
                                                 }}
-                                                className="bg-gray-100 dark:bg-gray-700 hover:bg-amber-500 hover:text-white dark:hover:text-gray-900 text-gray-600 dark:text-white p-2 rounded-lg transition-colors z-10"
-                                                title="Logar como este usuário (Admin)"
+                                                className="bg-gray-100 dark:bg-gray-700 hover:bg-red-500 hover:text-white text-gray-400 p-2 rounded-lg transition-colors z-10 shadow-sm"
+                                                title="Entrar como este usuário (Modo Espião)"
                                             >
                                                 <LogIn size={16} />
                                             </button>
@@ -292,7 +292,7 @@ export const TeamManager: React.FC<TeamManagerProps> = ({
                             <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700/50 flex flex-col gap-2" onClick={e => e.stopPropagation()}>
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                                        <Shield size={12} /> Plano Ativo:
+                                        <Shield size={12} /> Plano (30 dias):
                                     </span>
                                     <div className="flex bg-gray-100 dark:bg-gray-900 rounded-lg p-0.5">
                                         <button 

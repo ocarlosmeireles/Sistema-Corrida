@@ -1,7 +1,33 @@
 
 import React, { useState } from 'react';
-import { LayoutDashboard, Trophy, Activity, Bot, Users, BookOpen, CalendarDays, Heart, Medal, ScrollText, PlayCircle, Wind, Sun, Moon, Flag, Settings, Menu, X, ChevronRight, LogOut, Bell, CheckCheck, Home, Trash2, Crown, Clock } from 'lucide-react';
+import { LayoutDashboard, Trophy, Activity, Bot, Users, BookOpen, CalendarDays, Heart, Medal, ScrollText, PlayCircle, Wind, Sun, Moon, Flag, Settings, Menu, X, ChevronRight, LogOut, Bell, CheckCheck, Home, Trash2, Crown, Clock, Shield, User, BarChart2 } from 'lucide-react';
 import { Member } from '../types';
+
+// Custom Winged Shoe Icon
+const WingedShoeIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M2 14h2.5" />
+    <path d="M5 14v-2a3 3 0 0 1 3-3h4" />
+    <path d="M9 9l3-5 3 5" />
+    <path d="M2 17h2.5" />
+    <path d="M12.5 8h3.5a4 4 0 0 1 3.5 2l2.5 5" />
+    <path d="M22 15h-2.5" />
+    <path d="M5 17c0 1.7 1.3 3 3 3h11c1.7 0 3-1.3 3-3" />
+    <path d="M5 14c0 1.7 1.3 3 3 3" />
+    <path d="M22 15c0 1.7-1.3 3-3 3" />
+  </svg>
+);
 
 interface NavigationProps {
   activeTab: string;
@@ -37,10 +63,12 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'leaderboard', icon: Trophy, label: 'Ranking', category: 'Competição' },
     { id: 'community', icon: Heart, label: 'Social', category: 'Comunidade' },
     
+    // Ícone personalizado aqui
+    { id: 'training', icon: WingedShoeIcon, label: 'Central de Treinos', category: 'Treinos' },
+    { id: 'coach', icon: Bot, label: 'Coach IA', category: 'Treinos' },
+
     // Funcionalidades Completas
-    { id: 'coach', icon: Bot, label: 'Coach IA', category: 'Performance' },
     { id: 'history', icon: Clock, label: 'Histórico', category: 'Performance' },
-    { id: 'plans', icon: ScrollText, label: 'Planilhas', category: 'Performance' },
     { id: 'activity', icon: Activity, label: 'Evolução', category: 'Performance' },
     { id: 'achievements', icon: Medal, label: 'Conquistas', category: 'Competição' },
     { id: 'events', icon: CalendarDays, label: 'Eventos', category: 'Comunidade' },
@@ -77,14 +105,13 @@ export const Navigation: React.FC<NavigationProps> = ({
   const toggleNotifications = () => {
       setShowNotifications(!showNotifications);
       if (!showNotifications && unreadCount > 0) {
-          // Optional: Mark read on open? Or let user do it manually. 
-          // Current request implies specific dismissal, so we keep manual actions.
+          // Keep generic behavior
       }
   };
 
   return (
     <>
-      {/* --- DESKTOP SIDEBAR --- */}
+      {/* --- DESKTOP SIDEBAR (UNCHANGED) --- */}
       <nav className="hidden md:flex flex-col w-64 h-screen bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 z-50 transition-colors duration-300 fixed left-0 top-0">
         <div className="flex flex-col px-6 py-8 h-full">
           <div className="flex items-center justify-between mb-8">
@@ -108,7 +135,6 @@ export const Navigation: React.FC<NavigationProps> = ({
                       const allowed = Array.isArray(item.requiredRole) ? item.requiredRole : [item.requiredRole];
                       if (!allowed.includes(currentUser.role)) return false;
                   }
-                  // Only show VIP if PRO or Admin
                   if (item.requiredPlan === 'pro' && currentUser.plan !== 'pro' && currentUser.role !== 'admin' && currentUser.role !== 'super_admin') return false;
                   return true;
               })
@@ -172,9 +198,10 @@ export const Navigation: React.FC<NavigationProps> = ({
         </div>
       </nav>
 
-      {/* --- DESKTOP NOTIFICATION DRAWER (Absolute) --- */}
+      {/* --- DESKTOP NOTIFICATION DRAWER --- */}
       {showNotifications && (
-          <div className="fixed left-64 top-4 z-[60] w-80 max-h-[85vh] flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl animate-fade-in">
+          <div className="fixed left-64 top-4 z-[60] w-80 max-h-[85vh] flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl animate-fade-in hidden md:flex">
+              {/* Desktop Notification Content (Same as before) */}
               <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-900/90 backdrop-blur-sm rounded-t-xl z-10">
                   <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2 text-sm">
                     Notificações 
@@ -239,61 +266,56 @@ export const Navigation: React.FC<NavigationProps> = ({
       {/* --- DESKTOP SPACER --- */}
       <div className="hidden md:block w-64 flex-shrink-0"></div>
 
-      {/* --- MOBILE BOTTOM NAVIGATION (MODERN DOCK) --- */}
-      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 z-[60] pb-[env(safe-area-inset-bottom)] transition-all duration-300 shadow-[0_-5px_25px_rgba(0,0,0,0.15)]">
-        <div className="flex justify-around items-center h-16 px-2">
+      {/* --- MOBILE BOTTOM NAVIGATION --- */}
+      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-white/90 dark:bg-[#09090b]/90 backdrop-blur-xl border-t border-gray-200 dark:border-white/5 z-[60] pb-[env(safe-area-inset-bottom)] transition-all duration-300">
+        <div className="flex justify-between items-end h-20 px-4 pb-2">
           
-          {/* 1. Dashboard (Home) */}
+          {/* 1. INÍCIO */}
           <button
              onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }}
-             className={`flex flex-col items-center justify-center w-16 h-full space-y-1 active:scale-90 transition-transform duration-200 group`}
+             className={`flex-1 flex flex-col items-center justify-end pb-3 space-y-1 group h-full`}
           >
-             <div className={`p-1.5 rounded-2xl transition-all duration-300 ${activeTab === 'dashboard' ? 'bg-amber-100 dark:bg-amber-500/20 scale-110' : ''}`}>
-                <Home size={24} className={`${activeTab === 'dashboard' ? 'text-amber-600 dark:text-amber-400 fill-current' : 'text-gray-400 dark:text-gray-500'}`} strokeWidth={activeTab === 'dashboard' ? 2.5 : 2} />
-             </div>
-             <span className={`text-[9px] font-bold mt-0.5 ${activeTab === 'dashboard' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>Painel</span>
+             <Home size={22} className={`${activeTab === 'dashboard' ? 'text-amber-500 fill-amber-500/20' : 'text-gray-400 dark:text-gray-500'} transition-colors`} />
+             <span className={`text-[10px] font-bold ${activeTab === 'dashboard' ? 'text-amber-500' : 'text-gray-400 dark:text-gray-500'}`}>Início</span>
           </button>
 
-          {/* 2. Community (Social) */}
+          {/* 2. TREINO */}
+          <button
+             onClick={() => { setActiveTab('training'); setIsMobileMenuOpen(false); }}
+             className={`flex-1 flex flex-col items-center justify-end pb-3 space-y-1 group h-full`}
+          >
+             <WingedShoeIcon size={22} className={`${activeTab === 'training' || activeTab === 'coach' ? 'text-amber-500 fill-amber-500/20' : 'text-gray-400 dark:text-gray-500'} transition-colors`} />
+             <span className={`text-[10px] font-bold ${activeTab === 'training' || activeTab === 'coach' ? 'text-amber-500' : 'text-gray-400 dark:text-gray-500'}`}>Treino</span>
+          </button>
+
+          {/* 3. CENTER ACTION: RUN */}
+          <div className="relative -top-5 mx-2">
+              <button
+                onClick={() => { setActiveTab('run'); setIsMobileMenuOpen(false); }}
+                className="w-16 h-16 bg-amber-500 text-black rounded-full shadow-[0_0_20px_rgba(245,158,11,0.4)] border-4 border-gray-100 dark:border-gray-950 flex items-center justify-center transform active:scale-95 transition-transform"
+              >
+                <Wind size={28} fill="currentColor" />
+              </button>
+          </div>
+
+          {/* 4. SOCIAL */}
           <button
              onClick={() => { setActiveTab('community'); setIsMobileMenuOpen(false); }}
-             className={`flex flex-col items-center justify-center w-16 h-full space-y-1 active:scale-90 transition-transform duration-200 group`}
+             className={`flex-1 flex flex-col items-center justify-end pb-3 space-y-1 group h-full`}
           >
-             <div className={`p-1.5 rounded-2xl transition-all duration-300 ${activeTab === 'community' ? 'bg-amber-100 dark:bg-amber-500/20 scale-110' : ''}`}>
-                <Heart size={24} className={`${activeTab === 'community' ? 'text-amber-600 dark:text-amber-400 fill-current' : 'text-gray-400 dark:text-gray-500'}`} strokeWidth={activeTab === 'community' ? 2.5 : 2} />
-             </div>
-             <span className={`text-[9px] font-bold mt-0.5 ${activeTab === 'community' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>Social</span>
+             <Users size={22} className={`${activeTab === 'community' || activeTab === 'leaderboard' ? 'text-amber-500 fill-amber-500/20' : 'text-gray-400 dark:text-gray-500'} transition-colors`} />
+             <span className={`text-[10px] font-bold ${activeTab === 'community' || activeTab === 'leaderboard' ? 'text-amber-500' : 'text-gray-400 dark:text-gray-500'}`}>Tribo</span>
           </button>
 
-          {/* 3. MAIN ACTION: RUN (Floating FAB) */}
-          <button
-            onClick={() => { setActiveTab('run'); setIsMobileMenuOpen(false); }}
-            className="relative -top-6 bg-gradient-to-br from-amber-500 to-orange-600 text-white w-16 h-16 rounded-full shadow-2xl shadow-amber-500/40 border-4 border-gray-50 dark:border-gray-950 transform transition-transform active:scale-90 flex items-center justify-center z-10 group"
-          >
-            <PlayCircle size={32} fill="currentColor" className="group-hover:scale-110 transition-transform" />
-            <div className="absolute inset-0 rounded-full bg-white/20 animate-ping opacity-0 group-active:opacity-30"></div>
-          </button>
-
-          {/* 4. Leaderboard (Rank) */}
-          <button
-             onClick={() => { setActiveTab('leaderboard'); setIsMobileMenuOpen(false); }}
-             className={`flex flex-col items-center justify-center w-16 h-full space-y-1 active:scale-90 transition-transform duration-200 group`}
-          >
-             <div className={`p-1.5 rounded-2xl transition-all duration-300 ${activeTab === 'leaderboard' ? 'bg-amber-100 dark:bg-amber-500/20 scale-110' : ''}`}>
-                <Trophy size={24} className={`${activeTab === 'leaderboard' ? 'text-amber-600 dark:text-amber-400 fill-current' : 'text-gray-400 dark:text-gray-500'}`} strokeWidth={activeTab === 'leaderboard' ? 2.5 : 2} />
-             </div>
-             <span className={`text-[9px] font-bold ${activeTab === 'leaderboard' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>Rank</span>
-          </button>
-
-          {/* 5. MENU (More) */}
+          {/* 5. PERFIL / MENU */}
           <button
              onClick={() => setIsMobileMenuOpen(true)}
-             className={`flex flex-col items-center justify-center w-16 h-full space-y-1 active:scale-90 transition-transform duration-200 group`}
+             className={`flex-1 flex flex-col items-center justify-end pb-3 space-y-1 group h-full`}
           >
-             <div className={`p-1.5 rounded-2xl transition-all duration-300 ${isMobileMenuOpen ? 'bg-amber-100 dark:bg-amber-500/20 scale-110' : ''}`}>
-                <Menu size={24} className={`${isMobileMenuOpen ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`} strokeWidth={isMobileMenuOpen ? 2.5 : 2} />
+             <div className={`w-6 h-6 rounded-full overflow-hidden border-2 ${isMobileMenuOpen ? 'border-amber-500' : 'border-transparent'}`}>
+                 <img src={currentUser.avatarUrl} className="w-full h-full object-cover" alt="Menu" />
              </div>
-             <span className={`text-[9px] font-bold mt-0.5 ${isMobileMenuOpen ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>Menu</span>
+             <span className={`text-[10px] font-bold ${isMobileMenuOpen ? 'text-amber-500' : 'text-gray-400 dark:text-gray-500'}`}>Eu</span>
           </button>
         </div>
       </nav>
@@ -307,14 +329,14 @@ export const Navigation: React.FC<NavigationProps> = ({
                     className="flex items-center gap-3 cursor-pointer"
                     onClick={() => { onViewProfile && onViewProfile(currentUser.id); setIsMobileMenuOpen(false); }}
                 >
-                    <img src={currentUser.avatarUrl} className="w-12 h-12 rounded-full bg-gray-200 object-cover border-2 border-gray-100 dark:border-gray-800" alt="User" />
+                    <img src={currentUser.avatarUrl} className="w-14 h-14 rounded-full bg-gray-200 object-cover border-2 border-amber-500" alt="User" />
                     <div>
-                        <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <h2 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
                             {currentUser.name}
-                            <Settings size={16} className="text-amber-500" />
                         </h2>
                         <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded font-bold uppercase">{currentUser.role === 'member' ? currentUser.rank : currentUser.role.replace('_', ' ')}</span>
+                            <span className="text-[10px] bg-amber-500 text-black px-2 py-0.5 rounded font-black uppercase">{currentUser.rank}</span>
+                            <span className="text-xs text-gray-500">Ver Perfil Completo <ChevronRight size={10} className="inline"/></span>
                         </div>
                     </div>
                 </div>
@@ -323,90 +345,48 @@ export const Navigation: React.FC<NavigationProps> = ({
                 </button>
             </div>
 
-            {/* Quick Actions Row */}
-            <div className="flex gap-4 p-4 justify-center border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
-                <button onClick={toggleNotifications} className={`flex-1 py-3 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors ${showNotifications ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
-                    <div className="relative">
-                        <Bell size={20} />
-                        {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>}
-                    </div>
-                    <span className="text-[10px] font-bold uppercase">Avisos</span>
+            {/* System Settings Row */}
+            <div className="grid grid-cols-2 gap-4 p-4 border-b border-gray-200 dark:border-gray-800">
+                <button onClick={toggleTheme} className="flex items-center justify-center gap-2 py-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
+                    {isDark ? <Sun size={18} /> : <Moon size={18} />}
+                    <span className="text-xs font-bold uppercase">Tema {isDark ? 'Claro' : 'Escuro'}</span>
                 </button>
-                <button onClick={toggleTheme} className="flex-1 py-3 rounded-xl flex flex-col items-center justify-center gap-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                    {isDark ? <Sun size={20} /> : <Moon size={20} />}
-                    <span className="text-[10px] font-bold uppercase">Tema</span>
+                <button onClick={toggleNotifications} className="flex items-center justify-center gap-2 py-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 relative">
+                    <Bell size={18} />
+                    <span className="text-xs font-bold uppercase">Avisos</span>
+                    {unreadCount > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>}
                 </button>
             </div>
 
-            {/* Notifications Panel inside Drawer */}
-            {showNotifications ? (
-                <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-950">
-                     <div className="flex justify-between items-center mb-4 px-2">
-                        <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2"><Bell size={16} /> Notificações</h3>
-                        <div className="flex gap-2">
-                            <button onClick={onClearReadNotifications} className="text-xs text-gray-500 hover:text-red-500 flex items-center gap-1 bg-gray-200 dark:bg-gray-800 px-2 py-1 rounded transition-colors">
-                                <Trash2 size={12} /> Limpar Lidas
-                            </button>
-                            <button onClick={onMarkNotificationsRead} className="text-xs text-green-600 dark:text-green-400 font-bold uppercase flex items-center gap-1 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">
-                                <CheckCheck size={12} /> Ler Tudo
-                            </button>
+            {/* Menu Grid */}
+            <div className="flex-1 overflow-y-auto p-4 pb-24 custom-scrollbar">
+                {Object.entries(groupedItems).map(([category, items]) => (
+                    <div key={category} className="mb-6">
+                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1 flex items-center gap-2">
+                            {category}
+                            <div className="h-px bg-gray-200 dark:bg-gray-800 flex-1"></div>
+                        </h3>
+                        <div className="grid grid-cols-1 gap-2">
+                            {items.map(item => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => handleMobileNav(item.id)}
+                                    className={`flex items-center gap-4 p-4 rounded-xl transition-all border active:scale-98
+                                        ${activeTab === item.id 
+                                            ? 'bg-amber-500/10 border-amber-500/50 text-amber-600 dark:text-amber-400' 
+                                            : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'}`}
+                                >
+                                    <div className={`p-2 rounded-lg ${activeTab === item.id ? 'bg-amber-500 text-white' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                                        <item.icon size={20} />
+                                    </div>
+                                    <span className="font-bold text-sm flex-1 text-left">{item.label}</span>
+                                    <ChevronRight size={16} className="opacity-30" />
+                                </button>
+                            ))}
                         </div>
-                     </div>
-                     <div className="space-y-3">
-                        {currentUser.notifications.length === 0 ? (
-                            <div className="text-center py-12 opacity-50">
-                                <Bell size={48} className="mx-auto mb-2 text-gray-400" />
-                                <p className="text-sm text-gray-500">Nada novo por aqui.</p>
-                            </div>
-                        ) : (
-                            currentUser.notifications.map(note => (
-                                <div key={note.id} className={`relative p-4 rounded-xl border transition-all group ${!note.read ? 'bg-white dark:bg-gray-800 border-amber-200 dark:border-amber-500/30 shadow-sm' : 'bg-gray-100 dark:bg-gray-900 border-transparent opacity-70'}`}>
-                                     <button 
-                                        onClick={(e) => { e.stopPropagation(); onDeleteNotification(note.id); }}
-                                        className="absolute top-2 right-2 p-2 text-gray-400 hover:text-red-500 transition-colors opacity-50 group-hover:opacity-100"
-                                     >
-                                         <X size={14} />
-                                     </button>
-                                     <div className="flex justify-between items-start mb-1 pr-6">
-                                        <h4 className={`font-bold text-sm ${!note.read ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>{note.title}</h4>
-                                        <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">{new Date(note.date).toLocaleDateString()}</span>
-                                     </div>
-                                     <p className="text-xs text-gray-600 dark:text-gray-400 leading-snug pr-4">{note.message}</p>
-                                </div>
-                            ))
-                        )}
-                     </div>
-                </div>
-            ) : (
-                /* Menu List */
-                <div className="flex-1 overflow-y-auto p-4 pb-24">
-                    {Object.entries(groupedItems).map(([category, items]) => (
-                        <div key={category} className="mb-6">
-                            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2">{category}</h3>
-                            <div className="space-y-2">
-                                {items.map(item => (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => handleMobileNav(item.id)}
-                                        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all active:scale-98
-                                            ${activeTab === item.id 
-                                                ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20' 
-                                                : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-200'}`}
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className={`p-2 rounded-lg ${activeTab === item.id ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-800'}`}>
-                                                <item.icon size={20} />
-                                            </div>
-                                            <span className="font-bold text-sm">{item.label}</span>
-                                        </div>
-                                        <ChevronRight size={16} className={activeTab === item.id ? 'text-white/70' : 'text-gray-300 dark:text-gray-600'} />
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+                    </div>
+                ))}
+            </div>
         </div>
       )}
     </>

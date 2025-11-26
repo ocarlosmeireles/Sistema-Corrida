@@ -34,6 +34,8 @@ export interface Activity {
   route?: RoutePoint[]; // Rota GPS gravada
   shoeId?: string; // Tênis usado
   mode?: WorkoutMode; // Modalidade do treino
+  source?: 'manual' | 'strava' | 'garmin'; // New field
+  externalId?: string; // New field for deduplication
 }
 
 export interface Shoe {
@@ -104,7 +106,9 @@ export interface ConnectedApp {
 export interface Member {
   id: string;
   name: string;
-  password?: string; // New password field
+  email?: string; // Added for Auth
+  nickname?: string; // Added for Login (Username)
+  password?: string; // Keep for mock/compatibility
   gender: 'male' | 'female'; 
   role: 'super_admin' | 'admin' | 'member'; 
   plan: PlanType; 

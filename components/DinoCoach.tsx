@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Member, PlanType } from '../types';
 import { getWindCoachingTip, getTrainingAnalysis } from '../services/geminiService';
-import { Bot, Sparkles, ChevronRight, Wind, Zap, Lock, Crown, BarChart2 } from 'lucide-react';
+import { Bot, Sparkles, ChevronRight, Wind, Zap, Lock, Crown, BarChart2, FileText } from 'lucide-react';
 import { ProGate } from './ProGate';
 
 interface DinoCoachProps {
@@ -19,13 +19,11 @@ export const DinoCoach: React.FC<DinoCoachProps> = ({ member, userPlan = 'basic'
   useEffect(() => {
     let isMounted = true;
     const fetchTip = async () => {
-      // Even basic users might see a generic tip, but for the sake of "Pro features", let's fetch it but gate it visually
       if (userPlan === 'basic') {
           if (isMounted) setTip("A brisa de hoje traz renovação. [Conteúdo exclusivo bloqueado]");
           return;
       }
       
-      // Sort activities to get the true latest one, handling potential unsorted data
       const sortedActivities = [...(member.activities || [])].sort((a, b) => 
         new Date(b.date).getTime() - new Date(a.date).getTime()
       );
@@ -45,6 +43,16 @@ export const DinoCoach: React.FC<DinoCoachProps> = ({ member, userPlan = 'basic'
     const result = await getTrainingAnalysis(member.activities);
     setAnalysis(result);
     setLoading(false);
+  };
+
+  // Simple formatter for Markdown bold syntax (**text**)
+  const formatText = (text: string) => {
+      return text.split(/(\*\*.*?\*\*)/g).map((part, i) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={i} className="text-amber-600 dark:text-amber-400">{part.slice(2, -2)}</strong>;
+          }
+          return part;
+      });
   };
 
   const Content = (
@@ -88,6 +96,11 @@ export const DinoCoach: React.FC<DinoCoachProps> = ({ member, userPlan = 'basic'
             <BarChart2 size={20} className="text-amber-500" />
             Dossiê de Performance
           </h3>
+          {analysis && (
+              <div className="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                  <FileText size={12} /> Gerado Agora
+              </div>
+          )}
         </div>
 
         {!analysis ? (
@@ -105,14 +118,14 @@ export const DinoCoach: React.FC<DinoCoachProps> = ({ member, userPlan = 'basic'
             </button>
           </div>
         ) : (
-          <div className="prose prose-sm max-w-none relative z-10">
-            <div className="whitespace-pre-line text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 p-6 rounded-2xl border border-gray-200 dark:border-gray-700/50">
-              {analysis}
+          <div className="relative z-10">
+            <div className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 p-6 rounded-2xl border border-gray-200 dark:border-gray-700/50 leading-relaxed font-sans">
+              {formatText(analysis)}
             </div>
             <div className="mt-6 text-center">
                 <button 
                     onClick={() => setAnalysis(null)}
-                    className="text-xs text-gray-500 hover:text-amber-500 underline"
+                    className="text-xs text-gray-500 hover:text-amber-500 underline uppercase font-bold tracking-widest"
                 >
                     Limpar Análise
                 </button>

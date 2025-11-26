@@ -66,50 +66,69 @@ export const getWindCoachingTip = async (
 export const getTrainingAnalysis = async (activities: Activity[]): Promise<string> => {
     const model = 'gemini-2.5-flash';
 
-    if (activities.length === 0) return "Ainda não sinto o deslocamento de ar dos seus treinos. Corra para gerar dados!";
+    if (activities.length === 0) return "Ainda não há dados suficientes para uma análise eólica. Corra mais para gerar turbulência!";
 
-    // Pré-cálculo de métricas totais para ajudar a IA
+    // 1. Pré-cálculo de Estatísticas Avançadas
     const totalRuns = activities.length;
-    const totalElevation = activities.reduce((acc, curr) => acc + (curr.elevationGain || 0), 0);
     const totalDist = activities.reduce((acc, curr) => acc + curr.distanceKm, 0);
+    const totalTimeMin = activities.reduce((acc, curr) => acc + curr.durationMin, 0);
+    const totalElevation = activities.reduce((acc, curr) => acc + (curr.elevationGain || 0), 0);
     
-    // Formatar histórico completo (sem slice)
-    // Ordenar por data (antigo -> novo) para análise de evolução
-    const sortedActivities = [...activities].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // Cálculo de Pace Médio Global
+    const avgPaceDec = totalDist > 0 ? totalTimeMin / totalDist : 0;
+    const avgPaceMin = Math.floor(avgPaceDec);
+    const avgPaceSec = Math.round((avgPaceDec - avgPaceMin) * 60);
+    const avgPaceStr = `${avgPaceMin}'${avgPaceSec.toString().padStart(2, '0')}"/km`;
+
+    // Identificar Recordes (Melhor Pace e Maior Distância)
+    const longestRun = Math.max(...activities.map(a => a.distanceKm));
+    const fastestActivity = activities.reduce((prev, current) => {
+        const prevPace = parseFloat(prev.pace.replace("'", ".").replace('"', ''));
+        const currPace = parseFloat(current.pace.replace("'", ".").replace('"', ''));
+        return (currPace < prevPace && currPace > 0) ? current : prev;
+    });
+
+    // Filtrar Treinos Recentes (Últimos 5) para Contexto Imediato
+    const sortedActivities = [...activities].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const recentActivities = sortedActivities.slice(0, 5);
     
-    const historyStr = sortedActivities.map(a => 
-        `- Data: ${a.date} | Dist: ${a.distanceKm}km | Tempo: ${a.durationMin}min | Pace: ${a.pace} | Elev: ${a.elevationGain || 0}m | Feeling: ${a.feeling}`
+    const recentLog = recentActivities.map(a => 
+        `- Data: ${new Date(a.date).toLocaleDateString()} | Dist: ${a.distanceKm}km | Pace: ${a.pace} | Elev: ${a.elevationGain || 0}m | Sentimento: ${a.feeling} | Nota: "${a.notes || ''}"`
     ).join('\n');
 
     const prompt = `
-      Atue como o "Coach Eólico" da equipe Filhos do Vento. Realize uma análise técnica profunda do histórico COMPLETO deste corredor.
-      
-      Métricas Gerais Pré-calculadas:
-      - Total de Treinos: ${totalRuns}
-      - Distância Total Analisada: ${totalDist.toFixed(1)} km
-      - Ganho de Elevação Acumulado: ${totalElevation} m
+      Atue como o Cientista de Dados Esportivos Sênior da equipe "Filhos do Vento".
+      Sua tarefa é gerar um DOSSIÊ TÉCNICO DE PERFORMANCE para este atleta.
 
-      Log de Atividades (Cronológico):
-      ${historyStr}
+      ## 📊 DADOS QUANTITATIVOS GERAIS
+      - Total de Sessões: ${totalRuns}
+      - Volume Total Acumulado: ${totalDist.toFixed(1)} km
+      - Ganho de Elevação Total: ${totalElevation} m
+      - Pace Médio Histórico: ${avgPaceStr}
+      - Maior Distância (Longão): ${longestRun} km
+      - Recorde de Ritmo (Fastest Pace): ${fastestActivity.pace} em ${fastestActivity.distanceKm}km
 
-      Sua tarefa é gerar um relatório estruturado em Markdown abordando os seguintes pilares:
+      ## 🗓️ ATIVIDADE RECENTE (Últimos 5 Treinos)
+      ${recentLog}
 
-      1. **Consistência Aerodinâmica (Pace):**
-         - O pace médio está evoluindo (ficando mais rápido) ou estagnado?
-         - Existe muita variação (instabilidade) ou o atleta mantém um "ritmo de cruzeiro" sólido?
+      ## ESTRUTURA DO RELATÓRIO (Markdown)
+      Analise os dados acima e gere um relatório com as seguintes seções. Use negrito para métricas importantes.
 
-      2. **Domínio do Terreno (Elevação):**
-         - O atleta tem enfrentado subidas (ganho de elevação)?
-         - Com base nos dados de elevação, sugira se ele precisa de mais treinos de força/ladeira (ex: Vista Chinesa).
+      1. **Diagnóstico de Consistência 🧬**
+         - Analise se o atleta mantém regularidade ou tem muitos hiatos.
+         - O volume atual é sustentável?
 
-      3. **Volume & Frequência:**
-         - Aumentou a distância recentemente ou está diminuindo?
-         - O padrão de "feeling" indica risco de burnout ou motivação alta?
+      2. **Análise Aerodinâmica (Velocidade & Ritmo) ⚡**
+         - Compare o Pace Médio Histórico com os treinos recentes. Estamos evoluindo, estagnados ou regredindo?
+         - O atleta sabe variar ritmos (tem treinos lentos e rápidos) ou corre sempre na "zona cinzenta"?
 
-      4. **Veredito do Vento:**
-         - Uma conclusão final motivadora usando metáforas de vento (ex: "Você está se tornando um Furacão", "Sua base é sólida como uma calmaria").
+      3. **Fator Terreno e Força ⛰️**
+         - Baseado na elevação, o atleta encara subidas? Sugira locais do RJ (ex: Vista Chinesa, Paineiras) se faltar força.
 
-      Seja direto, técnico, mas inspirador. Use emojis para destacar pontos chave.
+      4. **Veredito do Vento 🎯**
+         - Uma conclusão direta e motivadora. Defina o foco para a próxima semana (ex: "Focar em volume", "Descanso ativo", "Treino de Tiros").
+
+      Seja técnico, preciso, mas mantenha a identidade "Filhos do Vento".
     `;
 
     try {
@@ -118,9 +137,10 @@ export const getTrainingAnalysis = async (activities: Activity[]): Promise<strin
             model,
             contents: prompt,
         });
-        return response.text || "Análise momentaneamente indisponível devido a turbulência nos dados.";
+        return response.text || "Análise indisponível no momento. O vento está interferindo no sinal.";
     } catch (error) {
-        return "Erro ao processar a análise temporal completa.";
+        console.error("Erro na análise completa:", error);
+        return "Erro ao processar o dossiê completo dos dados.";
     }
 }
 

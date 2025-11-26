@@ -1,16 +1,31 @@
-
-import { initializeApp } from "firebase/app";
+// @ts-nocheck
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged as onAuthStateChangedLib,
+  Auth
+} from 'firebase/auth';
 import { 
   getFirestore, 
   collection, 
   doc, 
   setDoc, 
-  getDocs, 
+  updateDoc, 
+  addDoc, 
+  getDoc, 
+  getDocs,
+  where,
+  onSnapshot, 
+  query, 
+  orderBy, 
   writeBatch
-} from "firebase/firestore";
-import { Member, WindRank, RaceEvent, Story, Sponsor, Season } from "../types";
+} from 'firebase/firestore';
+import { Member, RaceEvent, Story, Season, Sponsor, WindRank } from '../types';
 
-// --- FIREBASE CONFIGURATION ---
+// --- CONFIGURAÇÃO DO FIREBASE ---
 const firebaseConfig = {
   apiKey: "AIzaSyCTtyJO5NUi0dDCIgdJkNezxXblcB4ih1s",
   authDomain: "instavit-5487f.firebaseapp.com",
@@ -18,322 +33,217 @@ const firebaseConfig = {
   projectId: "instavit-5487f",
   storageBucket: "instavit-5487f.firebasestorage.app",
   messagingSenderId: "379094525129",
-  appId: "1:379094525129:web:fb06b2c937618f8c921918"
+  appId: "1:379094525129:web:fb06b2c937618f8c921918",
+  measurementId: "G-SG4FYZBZY7"
 };
 
-// Initialize Firebase
-let app;
-let dbInstance;
-let isInitialized = false;
+// Flag para verificar se está configurado (Simulação para exemplo)
+// Em produção, você usaria variáveis de ambiente
+export const isFirebaseInitialized = firebaseConfig.apiKey !== "SUA_API_KEY_AQUI";
 
-try {
+// --- INICIALIZAÇÃO MODULAR ---
+let app;
+let auth: any;
+let db: any;
+
+if (isFirebaseInitialized) {
+  try {
     app = initializeApp(firebaseConfig);
-    // Initialize Cloud Firestore with default settings
-    // Persistence removed to prevent errors in restricted environments
-    dbInstance = getFirestore(app);
-    isInitialized = true;
-} catch (e) {
-    console.error("Firebase Initialization Error:", e);
-    // Create a dummy DB object if initialization completely fails to prevent app crash on import
-    // This allows the app to load in "Offline Mock Mode" purely
-    dbInstance = {} as any; 
-    isInitialized = false;
+    auth = getAuth(app);
+    db = getFirestore(app);
+  } catch (e) {
+    console.error("Erro ao inicializar Firebase:", e);
+  }
 }
 
-export const db = dbInstance;
-export const isFirebaseInitialized = isInitialized;
+export { auth, db };
 
-// --- MOCK DATA (Exported for fallback) ---
-export const INITIAL_SPONSORS: Sponsor[] = [
-  {
-      id: 'sp1',
-      name: 'ASICS',
-      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Asics_Logo.svg/2560px-Asics_Logo.svg.png',
-      prizeDescription: 'Tênis Novablast 3',
-      prizeImageUrl: 'https://images.asics.com/is/image/asics/1011B458_400_SR_RT_GLB?$zoom$'
-  },
-  {
-      id: 'sp2',
-      name: 'Gatorade',
-      logoUrl: 'https://upload.wikimedia.org/wikipedia/en/thumb/1/18/Gatorade_logo.svg/1200px-Gatorade_logo.svg.png',
-      prizeDescription: 'Kit Hidratação Mensal',
-      prizeImageUrl: 'https://m.media-amazon.com/images/I/71wM2VvB1zL._AC_SX679_.jpg'
-  },
-  {
-      id: 'sp3',
-      name: 'Águas Prata',
-      logoUrl: 'https://encrypted-tbn0.gstatic.com/images/q=tbn:ANd9GcQ6yP6d8hTfoiQ82uW_jQ8-r_K-l95tF4T0hA&s',
-      prizeDescription: 'Suprimento de Água Mineral',
-      prizeImageUrl: 'https://www.aguasprata.com.br/wp-content/uploads/2020/09/garrafa-agua-mineral-prata.png'
-  },
-  {
-      id: 'sp4',
-      name: 'Super Mercado Zona Sul',
-      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/2/24/Zona_Sul_Supermercados_Logo.png',
-      prizeDescription: 'Vale Compras Saudável R$ 500',
-      prizeImageUrl: 'https://zonasul.vtexassets.com/assets/vtex.file-manager-graphql/images/8ad5c452-e97f-4f06-9073-27d1b09a2e83___655b084b61c128341697550d9b62a24a.jpg'
+// --- RE-EXPORTS DA API MODULAR ---
+// Exportamos as funções nativas do v9 diretamente para uso nos componentes
+export { 
+  collection, 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  addDoc, 
+  getDoc, 
+  getDocs,
+  where,
+  onSnapshot, 
+  query, 
+  orderBy, 
+  writeBatch 
+};
+
+// Wrapper para onAuthStateChanged para garantir compatibilidade de tipos
+export const onAuthStateChanged = (authInstance: any, cb: any) => {
+    if (!authInstance) return () => {};
+    return onAuthStateChangedLib(authInstance, cb);
+};
+
+// --- SERVIÇOS DE AUTENTICAÇÃO ---
+
+export const signUpWithFirebase = async (memberData: Member, password: string) => {
+  if (!isFirebaseInitialized || !auth) throw new Error("Firebase não configurado.");
+
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, memberData.email!, password);
+    const user = userCredential.user;
+    if (!user) throw new Error("Falha na criação do usuário.");
+
+    const newMember: Member = {
+      ...memberData,
+      id: user.uid,
+    };
+
+    await setDoc(doc(db, "members", user.uid), newMember);
+    return newMember;
+
+  } catch (error: any) {
+    throw new Error(mapAuthCodeToMessage(error.code));
   }
-];
+};
 
+export const signInWithIdentifier = async (identifier: string, password: string) => {
+  if (!isFirebaseInitialized || !auth) throw new Error("Firebase não configurado.");
+  
+  let emailToUse = identifier;
+  
+  // Se não parece um email, tenta buscar pelo nickname ou nome
+  if (!identifier.includes('@')) {
+      try {
+          // 1. Tenta pelo Nickname
+          const qNick = query(collection(db, "members"), where("nickname", "==", identifier));
+          const snapshotNick = await getDocs(qNick);
+          
+          if (!snapshotNick.empty) {
+              emailToUse = snapshotNick.docs[0].data().email;
+          } else {
+              // 2. Tenta pelo Nome exato
+              const qName = query(collection(db, "members"), where("name", "==", identifier));
+              const snapshotName = await getDocs(qName);
+              
+              if (!snapshotName.empty) {
+                  emailToUse = snapshotName.docs[0].data().email;
+              } else {
+                  throw new Error("Usuário não encontrado com este Apelido ou Nome.");
+              }
+          }
+      } catch (e: any) {
+          // Se for erro nosso, relança. Se for erro de conexão, deixa passar para o auth tentar (vai falhar)
+          if (e.message.includes("Usuário não encontrado")) throw e;
+          console.error("Erro ao buscar usuário por identificador:", e);
+      }
+  }
+
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, emailToUse, password);
+    const user = userCredential.user;
+    if (!user) throw new Error("Falha no login.");
+    
+    const userDoc = await getDoc(doc(db, "members", user.uid));
+    
+    if (userDoc.exists()) {
+      return userDoc.data() as Member;
+    } else {
+      throw new Error("Perfil de usuário não encontrado no banco de dados.");
+    }
+
+  } catch (error: any) {
+    throw new Error(mapAuthCodeToMessage(error.code));
+  }
+};
+
+export const logoutFirebase = async () => {
+  if (!isFirebaseInitialized || !auth) return;
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("Erro ao sair", error);
+  }
+};
+
+// --- HELPER: TRADUÇÃO DE ERROS ---
+const mapAuthCodeToMessage = (code: string): string => {
+  switch (code) {
+    case 'auth/email-already-in-use': return 'Este email já está sendo usado por outro atleta.';
+    case 'auth/invalid-email': return 'O formato do email é inválido.';
+    case 'auth/operation-not-allowed': return 'Operação não permitida.';
+    case 'auth/weak-password': return 'A senha é muito fraca (mínimo 6 caracteres).';
+    case 'auth/user-disabled': return 'Este usuário foi desabilitado.';
+    case 'auth/user-not-found': return 'Não encontramos este email na base.';
+    case 'auth/wrong-password': return 'Senha incorreta. Tente novamente.';
+    case 'auth/invalid-credential': return 'Credenciais inválidas.';
+    default: return 'Ocorreu um erro desconhecido. Tente novamente.';
+  }
+};
+
+// --- DADOS MOCK PARA SEED/OFFLINE ---
 export const MOCK_MEMBERS: Member[] = [
   {
-    id: '0',
-    name: 'ZEUS (Super Admin)',
+    id: '1',
+    name: 'Carlos Admin',
+    email: 'admin@fdv.com',
+    nickname: 'Zeus',
     password: '123',
     gender: 'male',
     role: 'super_admin',
     plan: 'pro',
-    proExpiresAt: '2099-12-31T23:59:59.999Z',
-    bio: 'Controlando os ventos.',
-    location: 'Olimpo, RJ',
-    weight: 90,
-    height: 195,
     rank: WindRank.TORNADO,
-    totalDistance: 9999.9,
-    seasonScore: 9999, 
-    avatarUrl: 'https://ui-avatars.com/api/?name=Zeus&background=000&color=fff',
-    achievements: [],
+    totalDistance: 1250.5,
+    seasonScore: 4500,
+    avatarUrl: 'https://ui-avatars.com/api/?name=Carlos+Admin&background=0D8ABC&color=fff',
+    achievements: ['first_run', '10k_runner', 'total_1000', 'streak_30'],
     activities: [],
-    followers: [],
-    following: [],
+    followers: ['2', '3', '4'],
+    following: ['2', '3'],
     notifications: [],
-    shoes: []
+    shoes: [],
+    connectedApps: []
   },
-  {
-    id: '1',
-    name: 'Carlos Admin',
-    password: '123',
-    gender: 'male',
-    role: 'admin',
-    plan: 'pro',
-    proExpiresAt: '2025-12-31T23:59:59.999Z',
-    bio: 'Correndo contra o relógio, um dia de cada vez.',
-    location: 'Copacabana, RJ',
-    weight: 78,
-    height: 182,
-    rank: WindRank.BREEZE,
-    totalDistance: 32.5,
-    seasonScore: 450,
-    avatarUrl: 'https://ui-avatars.com/api/?name=Carlos+Admin&background=random',
-    achievements: ['first_run', '5k_runner'],
-    activities: [
-      { id: 'a1', date: '2023-10-20', distanceKm: 5.0, durationMin: 30, pace: "6'00\"", notes: 'Trote leve no Aterro do Flamengo', feeling: 'good' },
-      { id: 'a2', date: '2023-10-22', distanceKm: 7.5, durationMin: 45, pace: "6'00\"", notes: 'Chuva na Lagoa', feeling: 'hard' },
-    ],
-    followers: ['2', '3'],
-    following: ['2'],
-    notifications: [],
-    shoes: [
-        { id: 's1', brand: 'Nike', model: 'Pegasus 40', currentKm: 350, maxKm: 800, status: 'active', imageUrl: '' },
-        { id: 's2', brand: 'Adidas', model: 'Adizero SL', currentKm: 120, maxKm: 600, status: 'active', imageUrl: '' }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Sarah Ventania',
-    password: '123',
-    gender: 'female',
-    role: 'member',
-    plan: 'pro',
-    proExpiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-    bio: 'Viciada em endorfina. Maratona sub 4h loading...',
-    location: 'Leblon, RJ',
-    weight: 58,
-    height: 165,
-    rank: WindRank.GALE,
-    totalDistance: 180.2,
-    seasonScore: 1250,
-    avatarUrl: 'https://ui-avatars.com/api/?name=Sarah+Ventania&background=random',
-    achievements: ['first_run', '5k_runner', '10k_runner', 'veteran'],
-    activities: [],
-    followers: ['1', '3', '4'],
-    following: ['1', '3'],
-    notifications: [],
-    connectedApps: [{ id: 'strava', name: 'Strava', connected: true }],
-    shoes: []
-  },
-  {
-    id: '3',
-    name: 'Mike Furacão',
-    password: '123',
-    gender: 'male',
-    role: 'member',
-    plan: 'basic',
-    bio: 'Treinador e amante da velocidade. Se não for pra suar, nem vou.',
-    location: 'Barra, RJ',
-    weight: 82,
-    height: 180,
-    rank: WindRank.HURRICANE,
-    totalDistance: 620.5,
-    seasonScore: 890,
-    avatarUrl: 'https://ui-avatars.com/api/?name=Mike+Furacao&background=random',
-    achievements: ['first_run', 'veteran', '21k_runner'],
-    activities: [],
-    followers: ['1', '2'],
-    following: ['4'],
-    notifications: [],
-    shoes: []
-  },
-  {
-    id: '4',
-    name: 'Ana Rajada',
-    password: '123',
-    gender: 'female',
-    role: 'member',
-    plan: 'basic',
-    bio: 'Começando agora mas com foco total!',
-    location: 'Botafogo, RJ',
-    weight: 60,
-    height: 168,
-    rank: WindRank.GUST,
-    totalDistance: 85.0,
-    seasonScore: 600,
-    avatarUrl: 'https://ui-avatars.com/api/?name=Ana+Rajada&background=random',
-    achievements: ['first_run', '5k_runner'],
-    activities: [],
-    followers: [],
-    following: ['2'],
-    notifications: [],
-    shoes: []
-  }
 ];
 
 export const MOCK_EVENTS: RaceEvent[] = [
-  {
-    id: '1',
-    name: 'Circuito das Estações',
-    date: '2025-08-25',
-    location: 'Aterro do Flamengo, RJ',
-    distances: ['5km', '10km']
-  },
-  {
-    id: '2',
-    name: 'Maratona do Rio',
-    date: '2025-06-22',
-    location: 'Aterro do Flamengo, RJ',
-    distances: ['21km', '42km']
-  },
-  {
-    id: '3',
-    name: 'Desafio da Serra',
-    date: '2025-09-10',
-    location: 'Petrópolis, RJ',
-    distances: ['16km', '32km']
-  }
+  { id: 'e1', name: 'Maratona do Rio', date: '2025-06-15', location: 'Aterro do Flamengo', distances: ['21km', '42km'] },
+  { id: 'e2', name: 'Night Run Copacabana', date: '2025-08-20', location: 'Posto 6', distances: ['5km', '10km'] }
 ];
 
 export const MOCK_STORIES: Story[] = [
-  {
-    id: '1',
-    authorName: 'Carlos "Furacão" Silva',
-    authorRank: WindRank.HURRICANE,
-    title: 'Superando a Lesão no Joelho',
-    content: 'Há 6 meses, achei que nunca mais correria. Mas com o apoio da equipe Filhos do Vento e fortalecimento, hoje completei meus primeiros 10km sem dor na Lagoa! A persistência é o segredo.',
-    date: '2023-10-24',
-    likes: 15
-  },
-  {
-    id: '2',
-    authorName: 'Ana Maria',
-    authorRank: WindRank.GUST,
-    title: 'Minha primeira prova oficial',
-    content: 'Sempre tive vergonha de correr em público. O grupo me incentivou a me inscrever na Maratona do Rio. O frio na barriga foi grande, mas cruzar a linha de chegada no Aterro foi indescritível.',
-    date: '2023-10-20',
-    likes: 28
-  }
+  { id: 's1', authorName: 'Ana Rajada', authorRank: WindRank.GALE, title: 'Meu primeiro 21k!', content: 'Foi difícil, mas o vento a favor no final ajudou muito. Obrigado time!', date: '2025-02-10', likes: 24 },
 ];
 
 export const MOCK_SEASON: Season = {
-    id: 's1',
-    title: 'Temporada Verão 2025',
-    description: 'O calor do Rio não perdoa, mas a recompensa é doce. Acumule XP correndo e interagindo para ganhar prêmios exclusivos dos nossos parceiros.',
-    startDate: '2025-01-01',
-    endDate: '2025-03-31',
-    isActive: true,
-    sponsors: [INITIAL_SPONSORS[0], INITIAL_SPONSORS[1]]
+  id: 'season_2025_1',
+  title: 'Temporada dos Ventos Uivantes',
+  description: 'A temporada de outono chegou. O desafio é manter a consistência mesmo com o vento contra.',
+  startDate: '2025-03-01',
+  endDate: '2025-06-30',
+  isActive: true,
+  sponsors: []
 };
 
-// --- SEED FUNCTION ---
+export const INITIAL_SPONSORS: Sponsor[] = [
+  { id: 'sp1', name: 'ASICS', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Asics_Logo.svg/2560px-Asics_Logo.svg.png', prizeDescription: 'Novablast 4', prizeImageUrl: 'https://images.asics.com/is/image/asics/1011B693_400_SR_RT_GLB?$zoom$' },
+];
+
+// --- FUNÇÃO DE SEED (Popular banco vazio) ---
 export const seedDatabase = async () => {
-    // Defensive check: If db is not a valid Firestore instance (e.g. initialization failed), skip seeding
-    if (!isInitialized) {
-        console.warn("Skipping Firebase Seeding: Database not initialized correctly.");
-        return;
+  if (!isFirebaseInitialized || !db) return;
+  
+  try {
+    const testDoc = await getDoc(doc(db, 'seasons', 'current'));
+    if (!testDoc.exists()) {
+      console.log("Seeding Database...");
+      
+      await setDoc(doc(db, 'seasons', 'current'), MOCK_SEASON);
+      
+      await Promise.all(MOCK_EVENTS.map(ev => setDoc(doc(db, 'events', ev.id), ev)));
+      await Promise.all(MOCK_STORIES.map(st => setDoc(doc(db, 'stories', st.id), st)));
+      await Promise.all(INITIAL_SPONSORS.map(sp => setDoc(doc(db, 'sponsors', sp.id), sp)));
+      
+      console.log("Database Seeded!");
     }
-
-    console.log("Attempting to seed database...");
-    try {
-        const batch = writeBatch(db);
-        let hasChanges = false;
-
-        // Check if members exist
-        const membersRef = collection(db, "members");
-        const membersSnap = await getDocs(membersRef);
-        
-        if (membersSnap.empty) {
-            console.log("Seeding Members...");
-            MOCK_MEMBERS.forEach(member => {
-                const ref = doc(db, "members", member.id);
-                batch.set(ref, member);
-            });
-            hasChanges = true;
-        }
-
-        // Events
-        const eventsRef = collection(db, "events");
-        const eventsSnap = await getDocs(eventsRef);
-        if (eventsSnap.empty) {
-            console.log("Seeding Events...");
-            MOCK_EVENTS.forEach(event => {
-                const ref = doc(db, "events", event.id);
-                batch.set(ref, event);
-            });
-            hasChanges = true;
-        }
-
-        // Stories
-        const storiesRef = collection(db, "stories");
-        const storiesSnap = await getDocs(storiesRef);
-        if (storiesSnap.empty) {
-            console.log("Seeding Stories...");
-            MOCK_STORIES.forEach(story => {
-                const ref = doc(db, "stories", story.id);
-                batch.set(ref, story);
-            });
-            hasChanges = true;
-        }
-
-        // Sponsors
-        const sponsorsRef = collection(db, "sponsors");
-        const sponsorsSnap = await getDocs(sponsorsRef);
-        if (sponsorsSnap.empty) {
-            console.log("Seeding Sponsors...");
-            INITIAL_SPONSORS.forEach(sponsor => {
-                const ref = doc(db, "sponsors", sponsor.id);
-                batch.set(ref, sponsor);
-            });
-            hasChanges = true;
-        }
-
-        // Seasons (Config)
-        const seasonsRef = collection(db, "seasons");
-        const seasonsSnap = await getDocs(seasonsRef);
-        if (seasonsSnap.empty) {
-            console.log("Seeding Season...");
-            const ref = doc(db, "seasons", "current");
-            batch.set(ref, MOCK_SEASON);
-            hasChanges = true;
-        }
-
-        if (hasChanges) {
-            await batch.commit();
-            console.log("Database seeded successfully!");
-        } else {
-            console.log("Database already has data.");
-        }
-    } catch (error: any) {
-        // Graceful degradation for offline or permission denied
-        console.warn("⚠️ Firebase Seeding Issue: " + error.message);
-        // Do not throw, allowing app to proceed with mock data in memory
-    }
+  } catch (e) {
+    console.warn("Seed Error (pode ser permissão):", e);
+  }
 };

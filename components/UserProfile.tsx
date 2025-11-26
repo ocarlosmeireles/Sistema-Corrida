@@ -1,8 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Member } from '../types';
-import { MapPin, ChevronLeft, UserPlus, UserCheck, Activity as ActivityIcon, Camera, X, Trophy, Link as LinkIcon, MessageCircle, Edit3, Save, LogOut, Upload, Image as ImageIcon, Scale, Ruler } from 'lucide-react';
+import { Member, Activity } from '../types';
+import { MapPin, ChevronLeft, UserPlus, UserCheck, Activity as ActivityIcon, Camera, X, Trophy, Link as LinkIcon, MessageCircle, Edit3, Save, LogOut, Upload, Scale, Ruler, RefreshCw, CheckCircle, Mail, Fingerprint } from 'lucide-react';
 import { ACHIEVEMENTS_LIST } from './Achievements';
+import { connectStrava, getStravaActivities } from '../services/strava';
 
 interface UserProfileProps {
   member: Member;
@@ -24,6 +25,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ member, currentUser, o
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
       name: member.name,
+      email: member.email || '',
+      nickname: member.nickname || '',
       bio: member.bio || '',
       location: member.location || '',
       avatarUrl: member.avatarUrl,
@@ -38,15 +41,13 @@ export const UserProfile: React.FC<UserProfileProps> = ({ member, currentUser, o
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
-  // Integrations State (Mock)
-  const [connectedApps, setConnectedApps] = useState<{name: string, connected: boolean, color: string, icon: any}[]>([
-      { name: 'Strava', connected: false, color: 'bg-[#FC4C02]', icon: ActivityIcon },
-      { name: 'Garmin', connected: false, color: 'bg-[#000000]', icon: ActivityIcon },
-      { name: 'Polar', connected: false, color: 'bg-[#E60000]', icon: ActivityIcon }
+  // Integrations State
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [connectedApps, setConnectedApps] = useState(member.connectedApps || [
+      { id: 'strava', name: 'Strava', connected: false, color: 'bg-[#FC4C02]', icon: ActivityIcon },
+      { id: 'garmin', name: 'Garmin', connected: false, color: 'bg-[#000000]', icon: ActivityIcon },
+      { id: 'polar', name: 'Polar', connected: false, color: 'bg-[#E60000]', icon: ActivityIcon }
   ]);
-  
-  const [showConnectModal, setShowConnectModal] = useState(false);
-  const [connectingApp, setConnectingApp] = useState<string | null>(null);
 
   // Cleanup stream on unmount
   useEffect(() => {
@@ -61,12 +62,17 @@ export const UserProfile: React.FC<UserProfileProps> = ({ member, currentUser, o
   useEffect(() => {
       setEditForm({
           name: member.name,
+          email: member.email || '',
+          nickname: member.nickname || '',
           bio: member.bio || '',
           location: member.location || '',
           avatarUrl: member.avatarUrl,
           weight: member.weight || '',
           height: member.height || ''
       });
+      if (member.connectedApps) {
+          setConnectedApps(member.connectedApps as any);
+      }
   }, [member]);
 
   const handleSaveProfile = () => {
@@ -74,6 +80,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ member, currentUser, o
           onUpdateProfile({
               ...member,
               name: editForm.name,
+              email: editForm.email,
+              nickname: editForm.nickname,
               bio: editForm.bio,
               location: editForm.location,
               avatarUrl: editForm.avatarUrl,
@@ -83,6 +91,67 @@ export const UserProfile: React.FC<UserProfileProps> = ({ member, currentUser, o
           if(playSound) playSound('success');
       }
       setIsEditing(false);
+  };
+
+  // Strava Integration Logic
+  const handleConnectApp = async (appId: string) => {
+      if (appId === 'strava') {
+          const confirm = window.confirm("Você será redirecionado para o Strava para autorizar o Filhos do Vento.");
+          if (confirm) {
+              const success = await connectStrava();
+              if (success) {
+                  const updatedApps = connectedApps.map(app => 
+                      app.id === 'strava' ? { ...app, connected: true, lastSync: new Date().toISOString() } : app
+                  );
+                  setConnectedApps(updatedApps as any);
+                  if (onUpdateProfile) {
+                      onUpdateProfile({ ...member, connectedApps: updatedApps as any });
+                  }
+                  if(playSound) playSound('success');
+              }
+          }
+      } else {
+          alert("Integração em breve.");
+      }
+  };
+
+  const handleSyncStrava = async () => {
+      setIsSyncing(true);
+      try {
+          const newActivities = await getStravaActivities();
+          
+          // Merge logic is handled by parent via onUpdateProfile
+          const existingIds = new Set(member.activities.map(a => a.externalId));
+          const uniqueNewActivities = newActivities.filter(a => !existingIds.has(a.externalId));
+          
+          if (uniqueNewActivities.length > 0) {
+              const updatedActivities = [...member.activities, ...uniqueNewActivities];
+              const totalDistance = updatedActivities.reduce((acc, curr) => acc + curr.distanceKm, 0);
+              
+              // Update connected app timestamp
+              const updatedApps = connectedApps.map(app => 
+                  app.id === 'strava' ? { ...app, lastSync: new Date().toISOString() } : app
+              );
+
+              if (onUpdateProfile) {
+                  onUpdateProfile({
+                      ...member,
+                      activities: updatedActivities,
+                      totalDistance: totalDistance, // Update total distance
+                      connectedApps: updatedApps as any
+                  });
+              }
+              alert(`${uniqueNewActivities.length} novas atividades importadas do Strava!`);
+              if(playSound) playSound('success');
+          } else {
+              alert("Tudo atualizado! Nenhuma atividade nova encontrada.");
+          }
+      } catch (e) {
+          console.error(e);
+          alert("Erro ao sincronizar.");
+      } finally {
+          setIsSyncing(false);
+      }
   };
 
   const startCamera = async () => {
@@ -271,6 +340,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ member, currentUser, o
                 {isEditing ? (
                     <div className="space-y-4 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl border border-amber-500/30 animate-fade-in mt-4 md:mt-0">
                         <h4 className="text-amber-500 font-bold uppercase text-xs tracking-widest mb-2">Editando Perfil</h4>
+                        
+                        {/* Name & Location */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="text-xs text-gray-500 uppercase font-bold block mb-1">Nome</label>
@@ -291,7 +362,30 @@ export const UserProfile: React.FC<UserProfileProps> = ({ member, currentUser, o
                                 />
                             </div>
                         </div>
+
+                        {/* Email & Nickname (Added) */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-xs text-gray-500 uppercase font-bold mb-1 flex items-center gap-1"><Mail size={12}/> Email</label>
+                                <input 
+                                    type="email" 
+                                    value={editForm.email} 
+                                    onChange={e => setEditForm({...editForm, email: e.target.value})}
+                                    className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 uppercase font-bold mb-1 flex items-center gap-1"><Fingerprint size={12}/> Apelido</label>
+                                <input 
+                                    type="text" 
+                                    value={editForm.nickname} 
+                                    onChange={e => setEditForm({...editForm, nickname: e.target.value})}
+                                    className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                />
+                            </div>
+                        </div>
                         
+                        {/* Stats */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="text-xs text-gray-500 uppercase font-bold block mb-1">Peso (kg)</label>
@@ -355,6 +449,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ member, currentUser, o
                         </div>
                         
                         <div className="flex flex-wrap items-center gap-4 mt-2 text-gray-500 dark:text-gray-400 text-xs">
+                            <span className="flex items-center gap-1">
+                                <Fingerprint size={14} /> @{member.nickname || 'user'}
+                            </span>
                             <span className="flex items-center gap-1">
                                 <MapPin size={14} /> {member.location || 'Rio de Janeiro, RJ'}
                             </span>
@@ -436,15 +533,34 @@ export const UserProfile: React.FC<UserProfileProps> = ({ member, currentUser, o
                   {connectedApps.map((app, index) => (
                       <div key={app.name} className={`relative overflow-hidden p-4 rounded-xl border transition-all ${app.connected ? 'bg-gray-50 dark:bg-gray-900 border-green-500/50' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 opacity-90'}`}>
                           <div className="flex items-center gap-3 mb-4">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${app.color}`}>
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${app.id === 'strava' ? 'bg-[#FC4C02]' : app.id === 'garmin' ? 'bg-black' : 'bg-red-600'}`}>
                                   {app.name.charAt(0)}
                               </div>
-                              <span className="font-bold text-gray-900 dark:text-white">{app.name}</span>
+                              <div>
+                                <span className="font-bold text-gray-900 dark:text-white block">{app.name}</span>
+                                {app.connected && app.lastSync && (
+                                    <span className="text-[9px] text-gray-500 block">Sync: {new Date(app.lastSync).toLocaleDateString()}</span>
+                                )}
+                              </div>
                           </div>
                           
-                          <button className="w-full py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
-                              Conectar
+                          <button 
+                            onClick={() => handleConnectApp(app.id as any)}
+                            disabled={app.connected}
+                            className={`w-full py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${app.connected ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                          >
+                              {app.connected ? <><CheckCircle size={12} /> Conectado</> : 'Conectar'}
                           </button>
+
+                          {app.connected && app.id === 'strava' && (
+                              <button 
+                                onClick={handleSyncStrava}
+                                disabled={isSyncing}
+                                className="w-full mt-2 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200"
+                              >
+                                  <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} /> {isSyncing ? "Sync..." : "Sincronizar Agora"}
+                              </button>
+                          )}
                       </div>
                   ))}
               </div>
